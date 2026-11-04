@@ -19,3 +19,8 @@ A: I played the bassoon in high school!
 Hi! My name is Amina and I am a current Master of Engineering student studying CS and AI. I love to play volleyball and listening to podcasts. I'm looking forward to working with you all!
 
 #### Amina Q&A Section
+
+**Q: What's your favorite podcast?**
+
+### Eric A.
+Hi, my name is Eric and I'm an senior undergraduate student in course 6-3. I'm a video game developer and artist. My favorite color is purple and my favorite food is tofu.
