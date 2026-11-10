@@ -36,7 +36,7 @@ We intend to build an app that:
 
 (completed after)
 
-## 11/18
+<!-- ## 11/18
 
 ### Agenda: topics to be discussed with time allocated to each
 
@@ -56,4 +56,4 @@ TODO
 
 ### Plans & decisions (completed after): plans for next week and decisions made
 
-TODO
+TODO -->
