@@ -23,3 +23,8 @@ Hi! My name is Amina and I am a current Master of Engineering student studying C
 
 ### Eric A.
 Hi, my name is Eric and I'm an senior undergraduate student in course 6-3. I'm a video game developer and artist. My favorite color is purple and my favorite food is tofu.
+
+**Q: What's your favorite tofu dish?**
+
+### Aden A.
+Hi, I'm a senior undergrad in course 6-3. I play volleyball and am interested in game development and music. I hope to create an interesting project in this class.
