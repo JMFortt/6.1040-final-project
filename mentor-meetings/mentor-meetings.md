@@ -72,4 +72,14 @@ We intend to build an app that:
 
 ### Plans & decisions (completed after): plans for next week and decisions made
 
-TODO
+- Recording strokes and playback sounds best for timelapse feature
+
+- Should we let people uplaod their own reference images to add to the bank
+
+- Could have crowdsourced tags from users
+
+- Pushback is fine so long as we have a reson for our decisions
+
+- Debating the level of social elements (likes, public follower count, etc)
+
+- Plan to work on the MVP and decide on social features for later version
