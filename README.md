@@ -3,6 +3,8 @@
 
 The team bios are available [here](team.md).
 
+Class principles, the sync-engine stack, and notes on our design goals are in [agents/](agents/README.md).
+
 The mentor meeting notes for the project are available [here](mentor-meetings/mentor-meetings.md).
 
 Our problem framing deliverables are available [here](deliverables/F2.md)
