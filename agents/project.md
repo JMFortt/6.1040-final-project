@@ -85,6 +85,17 @@ From the ethical analysis in the F3 problem framing. These are design decisions,
 
 Primary oversight of each concept changes by checkpoint. Read the development plan. The course still expects every teammate to take part in framing, design, and implementation. See [`assignment.md`](assignment.md).
 
-## What is not built yet
+## What is running
 
-There is no `design/`, `src/`, or Vue app under `web/` yet. Absence of code is expected. Do not treat it as a broken app, and do not start the scaffold until the team asks. When that app exists, the screens are Vue single-file components. See `howtos/04-sync-engine-local.md`.
+The app that starts with `bun run dev` is ConceptBox’s account boilerplate, not Redraw. Specs for that boilerplate live in `design/`. Product specs stay in `deliverables/`.
+
+| Concept | Role in this build |
+| --- | --- |
+| Registering | Mints a user and a username. Included because the three below take that user as a parameter and do not create one. |
+| Authenticating | Stores a password verifier and checks it |
+| Federating (as CommonsFederating) | Links a Commons account to a user |
+| Sessioning | Keeps someone signed in |
+
+Sign-in compositions: `design/compositions/reusable/` (`accounts`, `passwords`, `commons`). The Vue page in `web/` only signs in, shows the username, and signs out.
+
+Do not treat a missing practice feature as a bug in this build. Add a Redraw concept only when the team asks, and leave `deliverables/` unchanged.

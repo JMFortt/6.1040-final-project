@@ -4,7 +4,7 @@ Original: https://61040.github.io/fa26/resources/sync-engine-local-dev/
 
 **Bun** runs the backend, installs packages, and runs tests. **Vite** serves and builds the Vue frontend. [P2](https://61040.github.io/fa26/assignments/p2/) requires that split: Bun, MongoDB, sync-engine, and a Vue.js frontend. The local-dev guide’s first tutorial is a plain HTML page so the backend can be tried quickly. Replace that page with Vue. Do not leave the product UI as that tutorial.
 
-This repository does not have the app yet. The layout below is the one to copy when the team asks to start it. Concept file roles: `../generating-code.md`.
+This repository already has that layout. The running concepts are the account boilerplate in `../project.md`, not Redraw. Concept file roles: `../generating-code.md`. Local commands are the `package.json` scripts below.
 
 ## Three parts
 

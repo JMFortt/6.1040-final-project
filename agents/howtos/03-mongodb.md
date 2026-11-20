@@ -4,7 +4,7 @@ Original: https://61040.github.io/fa26/resources/mongodb-setup/
 
 Develop against a **local** MongoDB in Podman. A cloud database is slow, sleeps, and is a poor fit for agents. The driver code stays the same; deploy time only changes `MONGODB_URL`.
 
-This repo does not have `compose.yaml` or `.env` yet. Add them with the app scaffold, using the class template, rather than inventing a hosted database.
+Local MongoDB is `compose.yaml`: `mongo:8.0`, bound to `127.0.0.1:27017`, user `dev` / password `dev`. `.env.example` sets `MONGODB_URL`. Copy it to `.env`. The app calls `client.db()` with no extra database name; the URI already names `redraw`.
 
 ## What the class template provides
 

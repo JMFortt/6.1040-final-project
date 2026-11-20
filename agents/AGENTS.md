@@ -7,7 +7,8 @@ Class ideas live in `readings/`, `modularity.md`, and `rubrics/`. Final-project 
 ## What you may change
 
 - `agents/` — this handbook. Update it when a decision or a lesson should stick.
-- Executable specs and application code under `design/` and `src/` **only after the team asks to implement**. Those trees are not in the repo yet. Do not create them as a side effect of another task.
+- The account boilerplate in `design/`, `src/`, and `web/` (Registering, Authenticating, Federating, Sessioning, and their sign-in compositions).
+- Redraw product concepts **only after the team asks to implement one**. Translate it from `deliverables/` into `design/` first. Do not edit the deliverable.
 
 ## What you do not change unless a teammate explicitly asks
 
@@ -36,7 +37,7 @@ If a deliverable and a later executable spec disagree, ask. Do not edit the deli
 - Never mention Redraw, HTTP, the canvas, or other concepts inside a concept’s state or actions. Notes and reactions may.
 - Never organize modules around nouns (`User`, `Drawing`, `Photo`) instead of activities.
 - Never merge two purposes, or split one lifecycle, to make the code easier.
-- Never scaffold the app or “clean up” a deliverable while doing something else.
+- Never add a Redraw concept, or edit a deliverable, while doing something else.
 
 ## Allowed stack
 
