@@ -87,7 +87,7 @@ Primary oversight of each concept changes by checkpoint. Read the development pl
 
 ## What is running
 
-The app that starts with `bun run dev` is ConceptBox’s account boilerplate, not Redraw. Specs for that boilerplate live in `design/`. Product specs stay in `deliverables/`.
+The app that starts with `bun run dev` includes ConceptBox’s account boilerplate and the drawing editor requested on 2026-11-20. Executable specs live in `design/`. Submitted product specs stay in `deliverables/`.
 
 | Concept | Role in this build |
 | --- | --- |
@@ -95,7 +95,8 @@ The app that starts with `bun run dev` is ConceptBox’s account boilerplate, no
 | Authenticating | Stores a password verifier and checks it |
 | Federating (as CommonsFederating) | Links a Commons account to a user |
 | Sessioning | Keeps someone signed in |
+| TimeLapsing | Persists each artist's working history and numbered completed histories for reconstruction and browser replay |
 
-Sign-in compositions: `design/compositions/reusable/` (`accounts`, `passwords`, `commons`). The Vue page in `web/` only signs in, shows the username, and signs out.
+Sign-in compositions: `design/compositions/reusable/` (`accounts`, `passwords`, `commons`). The canvas composition is `design/compositions/drawing/canvas.md`. The Vue workspace uses Easy-Brush with ink, dry brush, graphite, and eraser presets. The team selected one persistent private canvas per artist; completed strokes autosave and restore on return. On 2026-11-22 the team added numbered timelapse submissions and clarified that submission clears the working canvas. A private gallery lists completed recordings in order and supports browser replay. Reference association and video file export remain deferred.
 
 Do not treat a missing practice feature as a bug in this build. Add a Redraw concept only when the team asks, and leave `deliverables/` unchanged.

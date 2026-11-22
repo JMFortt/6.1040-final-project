@@ -6,6 +6,7 @@
       "dependencies": {
         "@mit-sdg/sync-engine": "1.1.0",
         "@mit-sdg/sync-engine-http": "1.1.0",
+        "easy-brush": "0.5.0",
         "mongodb": "^7.7.0",
         "vue": "^3.5.44",
       },
@@ -137,6 +138,8 @@
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 
     "devlop": ["devlop@1.1.0", "", { "dependencies": { "dequal": "^2.0.0" } }, "sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA=="],
+
+    "easy-brush": ["easy-brush@0.5.0", "", {}, "sha512-hBiOnAsa+NIrymvzTyqvngA+evzEGykNteSbD8Q6WTrHWsGOB0DM/VBZGUc+fJeP+0Ysi0rlvyN50lfrVPCfyQ=="],
 
     "entities": ["entities@7.0.1", "", {}, "sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA=="],
 

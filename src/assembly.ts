@@ -5,6 +5,7 @@ import type { Provider } from "./concepts/Federating/provider.ts";
 import { composition as accounts } from "./compositions/reusable/accounts.ts";
 import { composition as commons } from "./compositions/reusable/commons.ts";
 import { composition as passwords } from "./compositions/reusable/passwords.ts";
+import { composition as canvas } from "./compositions/drawing/canvas.ts";
 
 export function assembleApplication(resources: { database: Db; commons: Provider }) {
   return assemble({
@@ -12,6 +13,7 @@ export function assembleApplication(resources: { database: Db; commons: Provider
     instances: applicationConceptSet.implementations("mongo", resources),
     composition: {
       reusable: { accounts, passwords, commons },
+      drawing: { canvas },
     },
     redaction: { fields: ["attempt", "nonce", "state", "code"] },
     rawFaultReporter: ({ error }) => console.error(error),

@@ -1,0 +1,421 @@
+<script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_POINTS, parseStroke, RENDERER, type Stroke, type StrokePoint, type Tool } from "../../src/drawing/stroke.ts";
+import { StrokeRenderer } from "../drawing/renderer.ts";
+import { useCanvasHistory } from "../composables/useCanvasHistory.ts";
+import ToolIcon from "./ToolIcon.vue";
+import ReferencePanel from "./ReferencePanel.vue";
+import { practiceReference } from "../drawing/reference.ts";
+
+defineProps<{ username: string }>();
+const emit = defineEmits<{ signOut: []; timelapses: []; home: [] }>();
+const submittedIndex = ref<number | null>(null);
+const canvas = ref<HTMLCanvasElement>();
+const stage = ref<HTMLDivElement>();
+const tool = ref<Tool>("ink");
+const color = ref("#252b25");
+const size = ref(8);
+const opacity = ref(100);
+const zoom = ref("fit");
+const fitScale = ref(0.75);
+const panMode = ref(false);
+const panning = ref(false);
+let pan: { pointer: number; x: number; y: number; left: number; top: number } | undefined;
+let zooming = false;
+const ready = ref(false);
+const restoring = ref(false);
+const drawing = ref(false);
+const finishing = ref(false);
+const inputKind = ref("Mouse or pen");
+const pressure = ref(0);
+const cursor = ref<{ x: number; y: number } | null>(null);
+const tools: { id: Tool; name: string; detail: string; key: string; size: number }[] = [
+  { id: "ink", name: "Ink pen", detail: "Clean & pressure sensitive", key: "B", size: 8 },
+  { id: "dry-brush", name: "Dry brush", detail: "Broken, bristled texture", key: "D", size: 36 },
+  { id: "graphite", name: "Graphite", detail: "Soft, grainy marks", key: "G", size: 18 },
+  { id: "eraser", name: "Eraser", detail: "Lift marks from the page", key: "E", size: 40 },
+];
+const palette = ["#252b25", "#ffffff", "#567b8a", "#8e913d", "#be7256", "#675577", "#d6b16e", "#b85e65"];
+const selected = computed(() => tools.find((entry) => entry.id === tool.value)!);
+const scale = computed(() => zoom.value === "fit" ? fitScale.value : Number(zoom.value));
+let renderer: StrokeRenderer | undefined;
+let active: { stroke: Stroke; pointer: number; started: number; timestamp: number } | undefined;
+let finishPromise: Promise<void> = Promise.resolve();
+let resize: ResizeObserver | undefined;
+let disposed = false;
+
+const storage = useCanvasHistory(async (strokes) => {
+  restoring.value = true;
+  try {
+    if (active) await endStroke();
+    await finishPromise;
+    if (!disposed) await renderer?.restore([...strokes, ...storage.pending.value.map((item) => parseStroke(item.change)!).filter(Boolean)]);
+  } finally { restoring.value = false; }
+});
+const { pending, saved, saving, loading, error, unsaved, submitting, submissionPending, blocked, rejectedKey } = storage;
+const navigationDisabled = computed(() => unsaved.value || drawing.value || finishing.value || saving.value || submitting.value || restoring.value || loading.value);
+const status = computed(() => loading.value || restoring.value ? "Restoring canvas…"
+  : submitting.value ? "Submitting timelapse…"
+  : error.value ? "Not saved" : saving.value || unsaved.value ? "Saving strokes…"
+  : saved.value ? "All strokes saved" : "Ready to draw");
+
+function chooseTool(next: Tool) {
+  panMode.value = false;
+  tool.value = next;
+  size.value = tools.find((entry) => entry.id === next)!.size;
+}
+
+async function setZoom(value: number | "fit", anchor?: { x: number; y: number }) {
+  if (!stage.value || !canvas.value || drawing.value || panning.value || zooming) return;
+  const viewport = stage.value;
+  const bounds = viewport.getBoundingClientRect();
+  const point = anchor ?? { x: bounds.left + viewport.clientWidth / 2, y: bounds.top + viewport.clientHeight / 2 };
+  const before = canvas.value.getBoundingClientRect();
+  const x = (point.x - before.left) / scale.value;
+  const y = (point.y - before.top) / scale.value;
+  zooming = true;
+  cursor.value = null;
+  zoom.value = value === "fit" ? "fit" : String(Math.max(0.1, Math.min(5, value)));
+  await nextTick();
+  const after = canvas.value?.getBoundingClientRect();
+  if (after) {
+    if (value === "fit") viewport.scrollTo(0, 0);
+    else {
+      viewport.scrollLeft += after.left + x * scale.value - point.x;
+      viewport.scrollTop += after.top + y * scale.value - point.y;
+    }
+  }
+  zooming = false;
+}
+
+function wheelZoom(event: WheelEvent) {
+  const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? stage.value!.clientHeight : 1);
+  void setZoom(scale.value * Math.exp(-Math.max(-100, Math.min(100, delta)) * 0.003), { x: event.clientX, y: event.clientY });
+}
+
+function coordinates(event: PointerEvent): StrokePoint {
+  const rect = canvas.value!.getBoundingClientRect();
+  const currentPressure = event.pointerType === "pen" || event.pointerType === "touch"
+    ? event.pressure : 1;
+  pressure.value = currentPressure;
+  inputKind.value = event.pointerType === "pen" ? "Pen pressure" : event.pointerType === "touch" ? "Touch" : "Mouse · fixed pressure";
+  return {
+    x: Math.max(0, Math.min(CANVAS_WIDTH, (event.clientX - rect.left) * CANVAS_WIDTH / rect.width)),
+    y: Math.max(0, Math.min(CANVAS_HEIGHT, (event.clientY - rect.top) * CANVAS_HEIGHT / rect.height)),
+    pressure: Math.max(0, Math.min(1, currentPressure)),
+    time: Math.max(active?.stroke.points.at(-1)?.time ?? 0, Math.round(event.timeStamp - (active?.started ?? event.timeStamp))),
+  };
+}
+
+function hover(event: PointerEvent) {
+  const point = coordinates(event);
+  cursor.value = { x: point.x * scale.value, y: point.y * scale.value };
+}
+
+function startStroke(event: PointerEvent) {
+  if (event.type === "pointerdown" && (panMode.value || event.button === 1) && !active && !pan && event.isPrimary) {
+    if (event.button !== 0 && event.button !== 1) return;
+    event.preventDefault();
+    canvas.value!.setPointerCapture(event.pointerId);
+    pan = { pointer: event.pointerId, x: event.clientX, y: event.clientY, left: stage.value!.scrollLeft, top: stage.value!.scrollTop };
+    panning.value = true;
+    cursor.value = null;
+    return;
+  }
+  if (panMode.value || pan || zooming) return;
+  if (!ready.value || restoring.value || submitting.value || submissionPending.value || blocked.value || rejectedKey.value || finishing.value || active || (event.type === "pointerdown" ? event.button !== 0 : event.buttons !== 1) || !event.isPrimary) return;
+  submittedIndex.value = null;
+  event.preventDefault();
+  canvas.value!.setPointerCapture(event.pointerId);
+  active = {
+    pointer: event.pointerId, started: event.timeStamp, timestamp: Date.now(),
+    stroke: { renderer: RENDERER, width: CANVAS_WIDTH, height: CANVAS_HEIGHT, tool: tool.value, color: color.value,
+      size: size.value, opacity: opacity.value / 100, points: [] },
+  };
+  drawing.value = true;
+  renderer!.begin(active.stroke);
+  appendPoint(event);
+}
+
+function appendPoint(event: PointerEvent) {
+  if (!active) return;
+  const point = coordinates(event);
+  active.stroke.points.push(point);
+  renderer!.point(point);
+}
+
+function moveStroke(event: PointerEvent) {
+  hover(event);
+  if (!active || active.pointer !== event.pointerId) return;
+  event.preventDefault();
+  const samples = event.getCoalescedEvents?.() ?? [];
+  for (const sample of samples.length ? samples : [event]) {
+    if (!active) break;
+    appendPoint(sample);
+    if (active.stroke.points.length >= MAX_POINTS) {
+      // Complete this bounded record; the next move continues the same held gesture.
+      void endStroke();
+      break;
+    }
+  }
+}
+
+function continueStroke(event: PointerEvent) {
+  if (pan) {
+    if (pan.pointer === event.pointerId) {
+      event.preventDefault();
+      stage.value!.scrollLeft = pan.left - (event.clientX - pan.x);
+      stage.value!.scrollTop = pan.top - (event.clientY - pan.y);
+    }
+    return;
+  }
+  if (panMode.value) return;
+  if (!active && !finishing.value && event.buttons === 1 && canvas.value?.hasPointerCapture(event.pointerId)) startStroke(event);
+  moveStroke(event);
+}
+
+async function endStroke(event?: PointerEvent) {
+  if (pan && event?.pointerId === pan.pointer) {
+    pan = undefined;
+    panning.value = false;
+    return;
+  }
+  if (!active || (event && active.pointer !== event.pointerId)) return;
+  const completed = active;
+  // Preserve the last real position without recording pointer-up's artificial zero pressure.
+  if (event?.type === "pointerup" && completed.stroke.points.length < MAX_POINTS) {
+    const point = coordinates(event);
+    point.pressure = completed.stroke.points.at(-1)!.pressure;
+    completed.stroke.points.push(point);
+    renderer!.point(point);
+  }
+  active = undefined;
+  drawing.value = false;
+  finishing.value = true;
+  // Queue immediately, so leaving during the final render still warns about unsaved work.
+  storage.enqueue(completed.stroke, completed.timestamp);
+  finishPromise = renderer!.finish();
+  await finishPromise;
+  finishing.value = false;
+}
+
+async function retry() {
+  if (submissionPending.value) await submitDrawing();
+  else if (!ready.value) ready.value = await storage.load();
+  else await storage.flush();
+}
+
+async function submitDrawing() {
+  if (drawing.value || finishing.value || restoring.value || !ready.value) return;
+  const index = await storage.submit();
+  if (index !== null) {
+    submittedIndex.value = index;
+    cursor.value = null;
+    panMode.value = false;
+    await setZoom("fit");
+  }
+}
+
+function keydown(event: KeyboardEvent) {
+  if (event.ctrlKey || event.metaKey || event.altKey || (event.target instanceof HTMLElement && event.target.matches("input, select, textarea, [contenteditable]"))) return;
+  const next = tools.find((entry) => entry.key.toLowerCase() === event.key.toLowerCase());
+  if (next) chooseTool(next.id);
+  if (event.key === "[") size.value = Math.max(1, size.value - 2);
+  if (event.key === "]") size.value = Math.min(100, size.value + 2);
+}
+
+onMounted(async () => {
+  await nextTick();
+  if (disposed) return;
+  renderer = new StrokeRenderer(canvas.value!);
+  resize = new ResizeObserver(([entry]) => {
+    const { width, height } = entry!.contentRect;
+    fitScale.value = Math.max(0.1, Math.min((width - 48) / CANVAS_WIDTH, (height - 48) / CANVAS_HEIGHT, 1));
+  });
+  resize.observe(stage.value!);
+  window.addEventListener("keydown", keydown);
+  const loaded = await storage.load();
+  if (!disposed) ready.value = loaded;
+});
+
+onBeforeUnmount(() => {
+  disposed = true;
+  resize?.disconnect();
+  renderer?.dispose();
+  window.removeEventListener("keydown", keydown);
+});
+</script>
+
+<template>
+  <main class="studio">
+    <header class="studio-header">
+      <a class="wordmark" href="/" aria-label="Redraw home" :aria-disabled="navigationDisabled" :title="navigationDisabled ? 'Finish drawing and saving before going home' : 'Redraw home'" @click.prevent="!navigationDisabled && emit('home')"><span class="brand-mark" aria-hidden="true">r.</span>redraw<span class="brand-dot">/</span></a>
+      <div class="document-title"><span class="document-mark" aria-hidden="true">▧</span><span>Your canvas<small>A little practice, every day.</small></span></div>
+      <div class="account"><span class="avatar">{{ username.charAt(0).toUpperCase() }}</span><span class="username">{{ username }}</span>
+        <button class="sign-out" :disabled="navigationDisabled" @click="emit('signOut')">Sign out</button>
+      </div>
+    </header>
+
+    <aside class="tools-panel" aria-label="Drawing tools">
+      <div class="panel-heading"><span>THE TOOLBOX</span><span class="edition">01</span></div>
+      <div class="tool-list" role="group" aria-label="Choose a drawing tool">
+        <button v-for="entry in tools" :key="entry.id" class="tool" :class="{ selected: tool === entry.id }" :aria-pressed="tool === entry.id" :title="`${entry.name} (${entry.key})`" @click="chooseTool(entry.id)">
+          <span class="tool-icon"><ToolIcon :tool="entry.id" /></span>
+          <span class="tool-label">{{ entry.name }}<small>{{ entry.detail }}</small></span><kbd>{{ entry.key }}</kbd>
+        </button>
+      </div>
+
+      <section class="settings" aria-label="Brush settings">
+        <div class="setting-title"><label for="brush-size">Size</label><output for="brush-size">{{ size }} <span>px</span></output></div>
+        <input id="brush-size" v-model.number="size" type="range" min="1" max="100" :style="{ '--range': `${size}%` }" />
+        <div class="setting-title opacity-title"><label for="brush-opacity">Opacity</label><output for="brush-opacity">{{ opacity }}<span>%</span></output></div>
+        <input id="brush-opacity" v-model.number="opacity" type="range" min="1" max="100" :style="{ '--range': `${opacity}%` }" />
+      </section>
+
+      <section class="color-section" aria-label="Ink color" :class="{ inactive: tool === 'eraser' }">
+        <div class="section-label">COLOR</div>
+        <label class="color-picker" for="ink-color"><input id="ink-color" v-model="color" type="color" :disabled="tool === 'eraser'" /><span>{{ color.toUpperCase() }}<small>Custom color</small></span><span class="color-plus" aria-hidden="true">+</span></label>
+        <div class="swatches" role="group" aria-label="Color palette">
+          <button v-for="swatch in palette" :key="swatch" :style="{ background: swatch }" :class="{ chosen: color === swatch }" :aria-label="`Use color ${swatch}`" :aria-pressed="color === swatch" :disabled="tool === 'eraser'" @click="color = swatch"><span v-if="color === swatch" :style="{ color: swatch === '#ffffff' ? '#252b25' : '#fff' }">✓</span></button>
+        </div>
+      </section>
+
+      <div class="tool-note"><span class="note-icon" aria-hidden="true">↗</span><p>A lighter touch.<small>Press gently for fine lines, firmly for bolder marks. Works with a pressure-sensitive pen.</small></p></div>
+      <div class="privacy"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 9V6a4 4 0 0 1 8 0v3 M4 9h12v9H4Z" /></svg>Your canvas is private.</div>
+    </aside>
+
+    <section class="workspace" aria-label="Drawing workspace">
+      <div class="canvas-toolbar"><div class="canvas-title"><h1>Your daily blank page.</h1><span>{{ CANVAS_WIDTH }} × {{ CANVAS_HEIGHT }} px</span></div>
+        <div class="zoom-control" role="group" aria-label="Canvas view controls">
+          <button aria-label="Zoom out canvas" title="Zoom out canvas" :disabled="drawing || panning || scale <= 0.1" @click="setZoom(scale / 1.25)">−</button>
+          <output aria-label="Canvas zoom">{{ Math.round(scale * 100) }}%</output>
+          <button aria-label="Zoom in canvas" title="Zoom in canvas" :disabled="drawing || panning || scale >= 5" @click="setZoom(scale * 1.25)">+</button>
+          <button :disabled="drawing || panning" title="Fit canvas to screen" @click="setZoom('fit')">Fit</button>
+          <button :aria-pressed="panMode" :disabled="drawing || panning" title="Drag to move around the canvas" @click="panMode = !panMode; cursor = null">Pan</button>
+        </div>
+      </div>
+      <p class="canvas-view-hint">Scroll to zoom · {{ panMode ? 'Drag to pan. Turn Pan off to draw.' : 'Use Pan to move around the page.' }}</p>
+      <div v-if="error" class="save-error" role="alert"><span>{{ error }} <template v-if="pending.length">{{ pending.length }} stroke{{ pending.length === 1 ? '' : 's' }} waiting.</template></span>
+        <button v-if="rejectedKey" :disabled="saving || drawing || finishing || restoring" @click="storage.discardRejected">Discard rejected stroke</button>
+        <button v-else-if="!blocked" :disabled="submitting || saving" @click="retry">{{ submissionPending ? 'Retry submission' : 'Retry' }}</button>
+      </div>
+      <div ref="stage" class="canvas-stage" :class="{ 'pan-mode': panMode, panning }" @wheel.prevent="wheelZoom" @scroll="cursor = null">
+        <div class="canvas-position" :style="{ width: `${CANVAS_WIDTH * scale}px`, height: `${CANVAS_HEIGHT * scale}px` }">
+          <canvas ref="canvas" class="drawing-canvas" :class="{ unavailable: !ready || restoring }" aria-label="Drawing canvas. Use a mouse, touch, or pressure-sensitive pen to draw." @pointerdown="startStroke" @pointermove="continueStroke" @pointerup="endStroke" @pointercancel="endStroke" @lostpointercapture="endStroke" @pointerleave="cursor = null" @contextmenu.prevent />
+          <div v-if="cursor && ready && !restoring" class="brush-cursor" :style="{ left: `${cursor.x}px`, top: `${cursor.y}px`, width: `${Math.max(4, size * scale)}px`, height: `${Math.max(4, size * scale)}px` }" />
+          <div v-if="loading || restoring" class="canvas-loading" role="status">Restoring your canvas…</div>
+          <div v-else-if="!ready" class="canvas-loading">Your canvas will appear when it can be loaded.</div>
+        </div>
+      </div>
+      <footer class="canvas-footer"><div class="save-status" role="status" aria-live="polite"><span class="status-dot" :class="{ waiting: saving || loading || restoring, failed: !!error }" />{{ status }}</div><span class="stroke-count">{{ saved }} saved stroke{{ saved === 1 ? '' : 's' }}</span><span class="paper-label">Make something. Make it yours.</span></footer>
+      <div class="submission-bar">
+        <p v-if="submittedIndex" role="status">Timelapse #{{ submittedIndex }} saved. Your canvas is ready for a new drawing.</p>
+        <p v-else>Submit saves this drawing as a timelapse and starts a blank canvas.</p>
+        <div><button :disabled="navigationDisabled" @click="emit('timelapses')">View saved timelapses</button>
+          <button class="submit" :disabled="!ready || !saved || pending.length > 0 || saving || submitting || drawing || finishing || restoring || blocked" @click="submitDrawing">{{ submitting ? 'Submitting…' : submissionPending ? 'Retry submission' : 'Submit timelapse' }}</button></div>
+      </div>
+    </section>
+
+    <ReferencePanel v-bind="practiceReference" />
+
+    <footer class="studio-footer"><span><ToolIcon :tool="tool" />{{ selected.name }}<span class="footer-divider">/</span>{{ inputKind }}<span v-if="drawing && inputKind === 'Pen pressure'">{{ Math.round(pressure * 100) }}%</span></span><span class="shortcut-hint"><kbd>[</kbd><kbd>]</kbd> brush size <span class="footer-divider">·</span> Strokes save automatically</span></footer>
+  </main>
+</template>
+
+<style scoped>
+.studio { --ink: #27372d; --muted: #70776e; --line: #dfe2d8; --accent: #465a3d; display: grid; grid-template: 78px minmax(0, 1fr) 38px / 248px minmax(0, 1fr); height: 100dvh; min-height: 620px; color: var(--ink); background: #f8f9f4; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; font-size: 13px; }
+button, select, input { font: inherit; }
+button, select { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #567b8a; outline-offset: 4px; }
+.studio-header { grid-column: 1 / -1; display: flex; align-items: center; border-bottom: 1px solid var(--line); padding: 0 28px; gap: 40px; background: #fcfcf8; }
+.wordmark { display: flex; align-items: center; gap: 10px; width: 180px; flex-shrink: 0; font-size: 25px; letter-spacing: -1.3px; font-weight: 700; text-decoration: none; color: var(--ink); }
+.brand-mark { display: grid; place-items: center; width: 31px; height: 33px; border-radius: 9px 9px 9px 2px; background: var(--ink); color: #fafbf3; font-family: Georgia, serif; font-size: 28px; padding-bottom: 6px; }
+.brand-dot { color: #929a77; font-weight: 400; }
+.document-title { display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 600; }
+.document-mark { font-size: 26px; color: #89907e; }
+.document-title small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; margin-top: 3px; }
+.account { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.avatar { display: grid; place-items: center; width: 31px; height: 31px; background: #e7ebdf; border: 1px solid #d9dfd0; border-radius: 50%; font-size: 11px; font-weight: 600; }
+.username { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.sign-out { color: var(--muted); background: none; border: 0; border-left: 1px solid var(--line); padding: 8px 0 8px 15px; margin-left: 5px; font-size: 12px; }
+.tools-panel { display: flex; flex-direction: column; border-right: 1px solid var(--line); padding: 28px 20px 20px; overflow: auto; background: #fcfcf8; }
+.panel-heading, .section-label { font-size: 10px; font-weight: 600; letter-spacing: 1.8px; color: var(--muted); }
+.panel-heading { display: flex; justify-content: space-between; margin: 0 4px 20px; }
+.edition { color: #9ca38f; font-size: 10px; }
+.tool-list { display: grid; gap: 7px; }
+.tool { display: flex; align-items: center; gap: 11px; border: 1px solid transparent; border-radius: 8px; padding: 12px 9px; background: transparent; color: var(--ink); text-align: left; width: 100%; }
+.tool:hover { background: #f0f2e9; }
+.tool.selected { background: #e9eddf; border-color: #d5dcc7; }
+.tool-icon { width: 24px; flex-shrink: 0; }
+.tool-icon svg { display: block; width: 24px; height: 24px; }
+.tool-label { font-weight: 600; font-size: 12px; }
+.tool-label small { display: block; font-size: 9px; font-weight: 400; color: var(--muted); margin-top: 4px; white-space: nowrap; }
+.tool kbd { margin-left: auto; font: 10px inherit; color: #8b9280; }
+.settings { border-top: 1px solid var(--line); margin-top: 23px; padding: 23px 4px; }
+.setting-title { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+output { color: var(--ink); font-variant-numeric: tabular-nums; }
+output span { color: var(--muted); font-size: 10px; }
+.opacity-title { margin-top: 22px; }
+input[type="range"] { width: 100%; height: 4px; appearance: none; background: linear-gradient(to right, #63764e var(--range), #e0e4d8 var(--range)); margin: 17px 0 4px; border-radius: 4px; cursor: pointer; }
+input[type="range"]::-webkit-slider-thumb { appearance: none; width: 13px; height: 13px; background: #465a3d; border: 2px solid #fcfcf8; border-radius: 50%; box-shadow: 0 0 0 1px #465a3d; }
+input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; background: #465a3d; border: 2px solid #fcfcf8; border-radius: 50%; }
+.color-section { border-top: 1px solid var(--line); padding: 22px 4px 24px; }
+.color-section.inactive { opacity: .45; }
+.color-picker { display: flex; align-items: center; margin-top: 17px; gap: 10px; cursor: pointer; font-size: 11px; }
+.color-picker small { display: block; font-size: 10px; margin-top: 3px; color: var(--muted); }
+input[type="color"] { appearance: none; border: 1px solid #d1d6c8; border-radius: 7px; padding: 3px; width: 37px; height: 37px; background: white; cursor: pointer; }
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
+.color-plus { margin-left: auto; color: var(--muted); font-size: 20px; }
+.swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-top: 18px; }
+.swatches button { width: 20px; height: 20px; border-radius: 50%; padding: 0; border: 1px solid #00000015; display: grid; place-items: center; font-size: 11px; }
+.swatches button.chosen { outline: 1px solid #879176; outline-offset: 3px; }
+.tool-note { display: flex; gap: 10px; margin-top: auto; padding: 16px 4px 20px; border-top: 1px solid var(--line); }
+.note-icon { color: #87996f; font-size: 21px; }
+.tool-note p { font-size: 12px; margin: 0; }
+.tool-note small { display: block; font-size: 10px; line-height: 1.7; color: var(--muted); margin-top: 6px; }
+.privacy { display: flex; align-items: center; justify-content: center; gap: 7px; color: var(--muted); font-size: 10px; }
+.privacy svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.3; }
+.workspace { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #e9ece3; }
+.canvas-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 25px 32px 10px; gap: 12px; }
+.canvas-title h1 { font-family: Georgia, serif; font-size: 21px; letter-spacing: -.5px; font-weight: 400; margin: 0 0 6px; }
+.canvas-title > span { font-size: 10px; letter-spacing: .5px; color: #848b7c; }
+.zoom-control { display: flex; gap: 5px; align-items: center; color: var(--muted); font-size: 11px; }
+.zoom-control button { min-width: 36px; min-height: 36px; background: #f5f6ef; border: 1px solid #d9dece; padding: 7px 10px; border-radius: 6px; color: var(--ink); }
+.zoom-control button:hover { background: #e0e6d5; }
+.zoom-control button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: white; }
+.zoom-control output { width: 42px; text-align: center; }
+.canvas-view-hint { margin: 0; padding: 0 32px; font-size: 10px; color: var(--muted); }
+.canvas-stage { flex: 1; min-height: 0; overflow: auto; overflow-anchor: none; overscroll-behavior: contain; display: grid; padding: 24px; }
+.canvas-position { position: relative; margin: auto; flex-shrink: 0; background: white; box-shadow: 0 2px 4px #25301d08, 0 12px 35px #25301d12; }
+.drawing-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: none; }
+.drawing-canvas.unavailable { cursor: wait; }
+.pan-mode .drawing-canvas { cursor: grab; }
+.panning .drawing-canvas { cursor: grabbing; }
+.brush-cursor { position: absolute; transform: translate(-50%, -50%); border: 1px solid #555; box-shadow: 0 0 0 1px #fff9; border-radius: 50%; pointer-events: none; }
+.canvas-loading { position: absolute; inset: 0; display: grid; place-content: center; padding: 20px; background: #ffffffd9; color: var(--muted); text-align: center; }
+.canvas-footer { display: flex; align-items: center; gap: 16px; padding: 7px 32px 22px; font-size: 10px; color: var(--muted); }
+.submission-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; border-top: 1px solid #d5dcc7; background: #f5f6ef; }
+.submission-bar p { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
+.submission-bar > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.submission-bar button { min-height: 44px; padding: 9px 12px; border: 1px solid #cbd2c1; border-radius: 7px; background: white; color: var(--ink); font-size: 11px; }
+.submission-bar .submit { background: var(--accent); color: white; border-color: var(--accent); }
+.save-status { display: flex; align-items: center; gap: 7px; }
+.status-dot { width: 5px; height: 5px; border-radius: 50%; background: #6f8655; }
+.status-dot.waiting { background: #b49b47; }
+.status-dot.failed { background: #b14e3e; }
+.stroke-count { color: #838a7c; border-left: 1px solid #cbd2c1; padding-left: 16px; }
+.paper-label { margin-left: auto; color: #8b9282; font-family: Georgia, serif; font-style: italic; font-size: 12px; }
+.save-error { position: relative; z-index: 21; display: flex; gap: 16px; justify-content: space-between; align-items: center; margin: 8px 24px 0; padding: 10px 14px; background: #fff2dc; color: #754420; border: 1px solid #e2c7a2; border-radius: 6px; font-size: 12px; }
+.save-error button { border: 1px solid #b29d7e; padding: 5px 13px; color: inherit; border-radius: 4px; background: #fff9ef; }
+.studio-footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; color: var(--muted); border-top: 1px solid var(--line); background: #fcfcf8; font-size: 10px; }
+.studio-footer > span { display: flex; align-items: center; gap: 8px; }
+.studio-footer svg { width: 13px; height: 13px; }
+.footer-divider { margin: 0 6px; color: #bcc3b0; }
+.shortcut-hint kbd { border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font-size: 10px; }
+@media (max-width: 760px) { .zoom-control button { min-width: 44px; min-height: 44px; } .canvas-view-hint { padding: 8px 20px 0; } }
+@media (max-height: 780px) and (min-width: 761px) { .tools-panel { padding-top: 20px; } .tool { padding-top: 9px; padding-bottom: 9px; } .tool-note { display: none; } .privacy { margin-top: auto; } .settings { margin-top: 17px; padding-top: 18px; padding-bottom: 18px; } }
+@media (max-width: 1000px) { .studio { grid-template-columns: 218px minmax(0, 1fr); } .studio-header { gap: 15px; padding: 0 20px; } .wordmark { width: 170px; } .tools-panel { padding-left: 14px; padding-right: 14px; } .tool { gap: 8px; padding-left: 7px; padding-right: 7px; } .tool-label small { font-size: 8px; } .paper-label { display: none; } .canvas-toolbar { padding-left: 24px; padding-right: 24px; } }
+@media (max-width: 760px) { .studio { height: auto; min-height: 100dvh; grid-template: 64px auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .studio-header { padding: 0 16px; } .wordmark { width: auto; font-size: 23px; } .document-title, .username { display: none; } .account { gap: 8px; } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; } .panel-heading, .tool-note, .privacy { display: none; } .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 5px; } .tool { flex-direction: column; gap: 5px; padding: 8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool small, .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .section-label { font-size: 9px; } .color-picker { margin-top: 6px; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 18px 20px 4px; } .canvas-title h1 { font-size: 18px; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 315px); } .canvas-footer { padding: 6px 20px 15px; gap: 10px; } .stroke-count { padding-left: 10px; } .studio-footer { grid-row: 4; padding: 0 16px; } .shortcut-hint { display: none !important; } }
+</style>
