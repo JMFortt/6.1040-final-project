@@ -91,6 +91,64 @@ export type RedrawWire = {
     };
     error: { error: AppWideError | "INVALID_INPUT" | "INVALID_PASSWORD" | "INVALID_USERNAME" | "PASSWORD_SET" | "USERNAME_TAKEN" };
   };
+  "/canvas/history": {
+    input: {
+      "after": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>[0], ["after"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "start": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["start"]>>;
+      "updates": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["updates"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/canvas/stroke": {
+    input: {
+      "change": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["addUpdate"]>[0], ["change"]>>;
+      "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["addUpdate"]>[0], ["key"]>>;
+      "sequence": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["addUpdate"]>[0], ["sequence"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+      "timestamp": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["addUpdate"]>[0], ["timestamp"]>>;
+    };
+    output: {
+      "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["addUpdate"]>>, ["sequence"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_UPDATE" | "NOT_SIGNED_IN" | "STALE_HISTORY" | "UPDATE_KEY_REUSED" };
+  };
+  "/canvas/submit": {
+    input: {
+      "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>[0], ["key"]>>;
+      "sequence": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>[0], ["sequence"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "index": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["index"]>>;
+      "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["sequence"]>>;
+    };
+    error: { error: AppWideError | "EMPTY_HISTORY" | "INVALID_COMPLETION" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "STALE_HISTORY" | "UPDATE_KEY_REUSED" };
+  };
+  "/canvas/timelapse": {
+    input: {
+      "after": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>[0], ["after"]>>;
+      "index": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>[0], ["index"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "found": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>>>, ["found"]>>;
+      "updates": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>>>, ["updates"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/canvas/timelapses": {
+    input: {
+      "after": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recordings"]>[0], ["after"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "recordings": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recordings"]>>>, ["recordings"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
 };
 
 export type HttpAppWideError = never;
@@ -155,5 +213,58 @@ export type RedrawWireHttp = {
       "user": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["start"]>[0], ["subject"]>>;
     };
     error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" };
+  };
+  "/canvas/history": {
+    input: {
+      "after": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>[0], ["after"]>>;
+    };
+    output: {
+      "start": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["start"]>>;
+      "updates": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["updates"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/canvas/stroke": {
+    input: {
+      "change": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["addUpdate"]>[0], ["change"]>>;
+      "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["addUpdate"]>[0], ["key"]>>;
+      "sequence": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["addUpdate"]>[0], ["sequence"]>>;
+      "timestamp": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["addUpdate"]>[0], ["timestamp"]>>;
+    };
+    output: {
+      "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["addUpdate"]>>, ["sequence"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/canvas/submit": {
+    input: {
+      "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>[0], ["key"]>>;
+      "sequence": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>[0], ["sequence"]>>;
+    };
+    output: {
+      "index": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["index"]>>;
+      "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["sequence"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/canvas/timelapse": {
+    input: {
+      "after": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>[0], ["after"]>>;
+      "index": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>[0], ["index"]>>;
+    };
+    output: {
+      "found": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>>>, ["found"]>>;
+      "updates": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>>>, ["updates"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/canvas/timelapses": {
+    input: {
+      "after": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recordings"]>[0], ["after"]>>;
+    };
+    output: {
+      "recordings": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recordings"]>>>, ["recordings"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
 };

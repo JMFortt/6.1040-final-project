@@ -1,4 +1,5 @@
 import { httpPolicy, type HttpPolicy } from "@mit-sdg/sync-engine-http/policy";
+import { canvasHttp } from "./compositions/drawing/canvas.ts";
 import { accountsHttp } from "./compositions/reusable/accounts.ts";
 import { commonsHttp } from "./compositions/reusable/commons.ts";
 import { passwordsHttp } from "./compositions/reusable/passwords.ts";
@@ -12,6 +13,7 @@ export function redrawPolicy(publicOrigin: string): HttpPolicy {
       ...accountsHttp.publicErrors,
       ...passwordsHttp.publicErrors,
       ...commonsHttp.publicErrors,
+      ...canvasHttp.publicErrors,
     },
     cookies: {
       session: accountsHttp.sessionCookie("redraw-session", [

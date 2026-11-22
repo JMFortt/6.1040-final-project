@@ -18,6 +18,7 @@ export default {
       new URL("./design/compositions/reusable/accounts.md", import.meta.url),
       new URL("./design/compositions/reusable/passwords.md", import.meta.url),
       new URL("./design/compositions/reusable/commons.md", import.meta.url),
+      new URL("./design/compositions/drawing/canvas.md", import.meta.url),
     ],
   },
   projections: [httpWire({ policy: redrawPolicy("http://127.0.0.1:8080"), name: "RedrawWireHttp" })],
