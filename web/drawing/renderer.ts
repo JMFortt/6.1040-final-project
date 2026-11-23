@@ -138,6 +138,28 @@ export class StrokeRenderer {
     });
   }
 
+  /** The finished 1200×900 drawing as WebP, from the retained raster rather than the screen. */
+  exportWebp(): Promise<string | null> {
+    const snapshot = surface();
+    const ctx = snapshot.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.drawImage(this.base, 0, 0);
+    return new Promise((resolve) => {
+      snapshot.toBlob((blob) => {
+        if (!blob || blob.type !== "image/webp") { resolve(null); return; }
+        void blob.arrayBuffer().then((buffer) => {
+          const bytes = new Uint8Array(buffer);
+          let binary = "";
+          for (let index = 0; index < bytes.length; index += 0x8000) {
+            binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+          }
+          resolve(btoa(binary));
+        }).catch(() => resolve(null));
+      }, "image/webp", 0.92);
+    });
+  }
+
   async restore(strokes: readonly Stroke[], options?: { quiet?: boolean }) {
     if (this.tracking) {
       this.frames = [];

@@ -33,9 +33,10 @@ a set of Completions with
   a sequence Number
   an index Number
   a createdAt Number
+  an image String
   unique owner and index
 
-Rule: Updates, undos, redos, and completions share an immutable sequence and unique keys per owner. Each completion preserves the drawing since the previous completion; later events form the current history. Recordings are numbered consecutively from 1.
+Rule: Updates, undos, redos, and completions share an immutable sequence and unique keys per owner. Each completion preserves the drawing since the previous completion and the picture of that recording; later events form the current history. Recordings are numbered consecutively from 1.
 Rule: Replaying the events after a completion yields the drawing. A change adds its stroke and discards any redo. Undo lifts the latest stroke onto the redo stack. Redo puts that stroke back. The working canvas and a completed recording contain only the strokes still on the drawing. The tip is the latest event sequence and may be ahead of the last visible stroke.
 Rule: Repeating an accepted action with the same key and content returns its original result without changing state.
 ```
@@ -58,7 +59,7 @@ addUpdate(owner: Owner, key: String, sequence: Number, change: String, timestamp
     record the change and its occurrence time, or retrieve the original result on retry
     returns sequence
 
-complete(owner: Owner, key: String, sequence: Number) : returns (index: Number, sequence: Number)
+complete(owner: Owner, key: String, sequence: Number, image: String) : returns (index: Number, sequence: Number)
   where the completion is malformed
   then
     refuses INVALID_COMPLETION "The completion is not valid."
@@ -73,7 +74,7 @@ complete(owner: Owner, key: String, sequence: Number) : returns (index: Number, 
     refuses EMPTY_HISTORY "There are no updates to complete."
   where the completion is accepted
   then
-    preserve the current drawing under the next index with the completion time and begin an empty history, or retrieve the original result on retry
+    preserve the current drawing and its picture under the next index with the completion time and begin an empty history, or retrieve the original result on retry
     returns index, sequence
 
 undo(owner: Owner, key: String, sequence: Number, timestamp: Number) : returns (sequence: Number, removed: String)
@@ -118,6 +119,9 @@ redo(owner: Owner, key: String, sequence: Number, timestamp: Number) : returns (
 ```queries
 _history(owner: Owner, after: Number) : one (start: Number, tip: Number, updates: History, redo: Number)
   Returns the current history's starting boundary, the tip, the next page of strokes still on the drawing after the given sequence, in order, and how many strokes can be redone.
+
+_picture(owner: Owner, index: Number) : one (found: Flag, image: String)
+  Returns the picture preserved with that recording. found is false and image is empty when the recording does not exist, its index is invalid, or it was completed without a picture.
 
 _recordings(owner: Owner, after: Number) : one (recordings: Recordings)
   Returns the next page of owner's completed recordings after the given index, in order, with update counts and completion times.

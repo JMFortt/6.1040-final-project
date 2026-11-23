@@ -272,8 +272,9 @@ async function retry() {
 }
 
 async function submitDrawing() {
-  if (drawing.value || finishing.value || restoring.value || !ready.value) return;
-  const index = await storage.submit();
+  if (drawing.value || finishing.value || restoring.value || !ready.value || !renderer) return;
+  await finishPromise;
+  const index = await storage.submit(() => renderer!.exportWebp());
   if (index !== null) {
     submittedIndex.value = index;
     cursor.value = null;

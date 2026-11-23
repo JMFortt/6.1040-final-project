@@ -24,6 +24,7 @@ interface CompletionDocument<Owner> {
   start: number;
   count: number;
   createdAt: number;
+  image: string;
 }
 interface RevisionDocument<Owner> {
   owner: Owner;
@@ -34,6 +35,7 @@ interface RevisionDocument<Owner> {
 }
 type EventDocument<Owner> = UpdateDocument<Owner> | CompletionDocument<Owner> | RevisionDocument<Owner>;
 const uuid = (value: unknown) => typeof value === "string" && /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(value);
+const MAX_IMAGE = 2_097_152;
 const cursor = (value: number) => Number.isSafeInteger(value) && value >= 0 ? value : 0;
 const updateValue = ({ key, sequence, change, timestamp }: RecordedUpdate): RecordedUpdate => ({ key, sequence, change, timestamp });
 const isStroke = (event: { kind?: string; change?: string }): event is RecordedUpdate => event.kind !== "completion" && event.kind !== "undo" && event.kind !== "redo";
@@ -119,11 +121,13 @@ export class TimeLapsingConcept<Owner extends string> {
     return { sequence: existing.sequence };
   }
 
-  async complete({ owner, key, sequence }: { owner: Owner; key: string; sequence: number }) {
-    if (!uuid(key) || !Number.isSafeInteger(sequence) || sequence < 1) throw new InvalidCompletion("The completion is not valid.");
+  async complete({ owner, key, sequence, image }: { owner: Owner; key: string; sequence: number; image: string }) {
+    if (!uuid(key) || !Number.isSafeInteger(sequence) || sequence < 1 || typeof image !== "string" || image.length === 0 || image.length > MAX_IMAGE) {
+      throw new InvalidCompletion("The completion is not valid.");
+    }
     await this.#ready();
     const existing = await this.events.findOne({ owner, key });
-    if (existing) return this.#retryCompletion(existing, sequence);
+    if (existing) return this.#retryCompletion(existing, sequence, image);
     const last = await this.events.findOne({ owner }, { sort: { sequence: -1 } });
     if (sequence !== (last?.sequence ?? 0) + 1) throw new StaleHistory("Load the latest history before adding this update.");
     const previous = await this.events.findOne({ owner, kind: "completion", sequence: { $lt: sequence } }, { sort: { sequence: -1 } });
@@ -134,18 +138,18 @@ export class TimeLapsingConcept<Owner extends string> {
     try {
       // The unique sequence serializes completion against updates and other
       // completions. No deletes, copies, or multi-document transaction are needed.
-      await this.events.insertOne({ owner, key, sequence, kind: "completion", index, start, count: effective.length, createdAt: this.clock().getTime() });
+      await this.events.insertOne({ owner, key, sequence, kind: "completion", index, start, count: effective.length, image, createdAt: this.clock().getTime() });
     } catch (error) {
       if (!(error instanceof MongoServerError) || error.code !== 11000) throw error;
       const retried = await this.events.findOne({ owner, key });
-      if (retried) return this.#retryCompletion(retried, sequence);
+      if (retried) return this.#retryCompletion(retried, sequence, image);
       throw new StaleHistory("Load the latest history before adding this update.");
     }
     return { index, sequence };
   }
 
-  #retryCompletion(existing: EventDocument<Owner>, sequence: number) {
-    if (existing.kind !== "completion" || existing.sequence !== sequence) throw new UpdateKeyReused("This update identifier has already been used.");
+  #retryCompletion(existing: EventDocument<Owner>, sequence: number, image: string) {
+    if (existing.kind !== "completion" || existing.sequence !== sequence || existing.image !== image) throw new UpdateKeyReused("This update identifier has already been used.");
     return { index: existing.index, sequence: existing.sequence };
   }
 
@@ -220,6 +224,14 @@ export class TimeLapsingConcept<Owner extends string> {
     const { start, tip } = await this.#bounds(owner);
     const { effective, redo } = await this.#folded(owner, start, tip);
     return { start, tip, updates: effective.filter((update) => update.sequence > cursor(after)).slice(0, 50), redo: redo.length };
+  }
+
+  async _picture({ owner, index }: { owner: Owner; index: number }): Promise<{ found: boolean; image: string }> {
+    if (!Number.isSafeInteger(index) || index < 1) return { found: false, image: "" };
+    await this.#ready();
+    const recording = await this.events.findOne({ owner, kind: "completion", index });
+    if (recording?.kind !== "completion" || typeof recording.image !== "string" || recording.image.length === 0) return { found: false, image: "" };
+    return { found: true, image: recording.image };
   }
 
   async _recordings({ owner, after }: { owner: Owner; after: number }): Promise<{ recordings: { index: number; count: number; createdAt: number }[] }> {

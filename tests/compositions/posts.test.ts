@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { CANVAS_HEIGHT, CANVAS_WIDTH, RENDERER, type Stroke } from "../../src/drawing/stroke.ts";
 import { createApp, type RedrawApi } from "../app.ts";
 import { openTestDb, type TestDb } from "../test-db.ts";
+import { WEBP } from "../webp.ts";
 
 let database: TestDb;
 beforeAll(async () => { database = await openTestDb(); });
@@ -18,7 +19,7 @@ const stroke: Stroke = {
 async function submitTimelapse(api: RedrawApi, sequence: number) {
   const ink = { key: crypto.randomUUID(), sequence, timestamp: 1730000000000, change: JSON.stringify(stroke) };
   await api.canvas.stroke(ink);
-  await api.canvas.submit({ key: crypto.randomUUID(), sequence: sequence + 1 });
+  await api.canvas.submit({ key: crypto.randomUUID(), sequence: sequence + 1, image: WEBP });
   return ink;
 }
 

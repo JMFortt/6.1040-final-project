@@ -1,6 +1,7 @@
 import { endpoint, receive, respond, type EndpointValidator } from "@mit-sdg/sync-engine/boundary";
 import { where } from "@mit-sdg/sync-engine/language";
 import { concepts } from "../../concepts.ts";
+import { webp } from "../../drawing/picture.ts";
 import { parseStroke } from "../../drawing/stroke.ts";
 
 const { Sessioning, TimeLapsing } = concepts;
@@ -26,8 +27,14 @@ const revisionInput: EndpointValidator = (value) => isObject(value) && session(v
 
 const submitInput: EndpointValidator = (value) => isObject(value) && session(value.session)
   && typeof value.key === "string" && Number.isSafeInteger(value.sequence) && Number(value.sequence) > 0
-  && Object.keys(value).every((key) => ["session", "key", "sequence"].includes(key))
-  ? { ok: true } : { ok: false, detail: "Expected a submission key and sequence." };
+  && webp(value.image) !== null
+  && Object.keys(value).every((key) => ["session", "key", "sequence", "image"].includes(key))
+  ? { ok: true } : { ok: false, detail: "Expected a submission key, sequence, and WebP picture." };
+
+const pictureInput: EndpointValidator = (value) => isObject(value) && session(value.session)
+  && Number.isSafeInteger(value.index) && Number(value.index) > 0
+  && Object.keys(value).every((key) => ["session", "index"].includes(key))
+  ? { ok: true } : { ok: false, detail: "Expected a timelapse index." };
 
 const timelapseInput: EndpointValidator = (value) => isObject(value) && session(value.session)
   && Number.isSafeInteger(value.index) && Number(value.index) > 0
@@ -61,11 +68,16 @@ const Redo = endpoint("/canvas/redo", ({ session, owner, key, sequence, timestam
     .then(respond({ sequence: saved, key: restored, change, timestamp: occurred })),
 { validators: { input: revisionInput } });
 
-const Submit = endpoint("/canvas/submit", ({ session, owner, key, sequence, index, saved }) => receive({ session, key, sequence })
+const Submit = endpoint("/canvas/submit", ({ session, owner, key, sequence, image, index, saved }) => receive({ session, key, sequence, image })
   .then(Sessioning.use({ session }).responds({ subject: owner }))
-  .then(TimeLapsing.complete({ owner, key, sequence }).responds({ index, sequence: saved }))
+  .then(TimeLapsing.complete({ owner, key, sequence, image }).responds({ index, sequence: saved }))
   .then(respond({ index, sequence: saved })),
 { validators: { input: submitInput } });
+
+const Picture = endpoint("/canvas/picture", ({ session, owner, index, found, image }) => receive({ session, index })
+  .then(Sessioning.use({ session }).responds({ subject: owner }))
+  .then(where(TimeLapsing._picture({ owner, index }).is({ found, image })).then(respond({ found, image }))),
+{ validators: { input: pictureInput } });
 
 const Timelapses = endpoint("/canvas/timelapses", ({ session, owner, after, recordings }) => receive({ session, after })
   .then(Sessioning.use({ session }).responds({ subject: owner }))
@@ -90,4 +102,4 @@ export const canvasHttp = {
   },
 } as const;
 
-export const composition = { History, Stroke, Undo, Redo, Submit, Timelapses, Timelapse };
+export const composition = { History, Stroke, Undo, Redo, Submit, Picture, Timelapses, Timelapse };

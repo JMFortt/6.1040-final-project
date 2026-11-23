@@ -15,7 +15,7 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
   const canUndo = computed(() => drawn.value > 0 || pending.value.length > 0);
   const canRedo = computed(() => redoCount.value > 0);
   const submitting = ref(false);
-  const submission = ref<{ key: string; sequence: number } | null>(null);
+  const submission = ref<{ key: string; sequence: number; image: string } | null>(null);
   const submissionPending = computed(() => submission.value !== null);
   const blocked = ref(false);
   const rejectedKey = ref<string | null>(null);
@@ -224,12 +224,16 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
     if (!error.value) await flush();
   }
 
-  async function submit(): Promise<number | null> {
+  async function submit(capture: () => Promise<string | null>): Promise<number | null> {
     if (submitting.value || saving.value || loading.value || pending.value.length || blocked.value || (!saved.value && !submission.value)) return null;
     submitting.value = true;
     error.value = "";
-    submission.value ??= { key: crypto.randomUUID(), sequence: sequence.value + 1 };
     try {
+      if (!submission.value) {
+        const image = await capture();
+        if (!image) throw new Error("Could not save the finished drawing. Retry submission.");
+        submission.value = { key: crypto.randomUUID(), sequence: sequence.value + 1, image };
+      }
       const result = await api.canvas.submit(submission.value);
       if ("error" in result) {
         if (result.error === "CONFLICT") {

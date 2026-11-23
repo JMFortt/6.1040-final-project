@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { CANVAS_HEIGHT, CANVAS_WIDTH, RENDERER, type Stroke } from "../../src/drawing/stroke.ts";
 import { createApp, type RedrawApi } from "../app.ts";
 import { openTestDb, type TestDb } from "../test-db.ts";
+import { WEBP } from "../webp.ts";
 
 let database: TestDb;
 beforeAll(async () => { database = await openTestDb(); });
@@ -17,7 +18,7 @@ const stroke: Stroke = {
 /** Draws one stroke and submits it, starting at event sequence `sequence`. Returns the next free sequence. */
 async function submitDrawing(api: RedrawApi, sequence: number) {
   await api.canvas.stroke({ key: crypto.randomUUID(), sequence, timestamp: 1730000000000, change: JSON.stringify(stroke) });
-  const submitted = await api.canvas.submit({ key: crypto.randomUUID(), sequence: sequence + 1 });
+  const submitted = await api.canvas.submit({ key: crypto.randomUUID(), sequence: sequence + 1, image: WEBP });
   if ("error" in submitted) throw new Error(submitted.error);
   return sequence + 2;
 }

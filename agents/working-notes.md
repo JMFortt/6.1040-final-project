@@ -2,6 +2,10 @@
 
 Unresolved on purpose. Add a dated note when the team decides. Do not edit `deliverables/` to close one of these unless a teammate asks.
 
+## 2026-11-23 — timelapse picture
+
+A completion stores the picture of that recording as an opaque string. The drawing composition accepts only a WebP, at most 1.5 MB, produced in the browser from the 1200 × 900 raster and composited over white. It is not a capture of the screen. Recordings completed before this have no picture. The feed still replays strokes until it is switched to the stored image.
+
 ## 2026-11-23 — undo and redo
 
 Undo and redo are events on the same TimeLapsing log. Folding that log yields the drawing: a stroke pushes and clears the redo stack, undo lifts the latest stroke onto it, and redo puts that stroke back. The working canvas and a submitted recording show only the strokes still on the drawing. Ctrl+Z undoes and Ctrl+Y redoes, after the current gesture and any pending strokes have saved.

@@ -8,6 +8,7 @@ import ShareToggle from "./ShareToggle.vue";
 defineProps<{ username: string }>();
 const emit = defineEmits<{ practice: [] }>();
 const recordings = ref<{ index: number; count: number; createdAt: number }[]>([]);
+const pictures = ref<Record<number, string>>({});
 const loading = ref(false);
 const more = ref(true);
 const error = ref("");
@@ -28,8 +29,19 @@ async function loadMore() {
     if (disposed) return;
     recordings.value.push(...result.recordings);
     more.value = result.recordings.length === 20;
+    void loadPictures(result.recordings.map((recording) => recording.index));
   } catch (cause) { error.value = cause instanceof Error ? cause.message : "Could not load your timelapses."; }
   finally { loading.value = false; }
+}
+
+async function loadPictures(indices: number[]) {
+  await Promise.all(indices.map(async (index) => {
+    try {
+      const result = await api.canvas.picture({ index });
+      if (disposed || "error" in result || !result.found || result.image.length === 0) return;
+      pictures.value[index] = result.image;
+    } catch { /* A missing picture leaves the row without a thumbnail. */ }
+  }));
 }
 
 async function open(index: number) {
@@ -68,15 +80,13 @@ onBeforeUnmount(() => { disposed = true; request++; });
 <template>
   <main class="gallery">
     <div class="content">
-      <p class="eyebrow">YOUR PRACTICE ARCHIVE</p>
       <h1>Saved timelapses</h1>
-      <p class="intro">Your submissions, in order. Choose one to watch the drawing take shape.</p>
       <p v-if="error" class="error" role="alert">{{ error }} <button @click="loadMore">Retry</button></p>
       <div v-if="!loading && !error && !recordings.length" class="empty"><h2>Your first timelapse starts with a mark.</h2><p>Draw on your canvas, then select Submit timelapse to save it here.</p><button class="practice" @click="emit('practice')">Start Daily Practice</button></div>
       <div v-else class="archive">
         <nav aria-label="Saved timelapses">
           <ol>
-            <li v-for="recording in recordings" :key="recording.index"><button class="recording" :class="{ selected: selected === recording.index }" :aria-pressed="selected === recording.index" @click="open(recording.index)"><strong>Timelapse #{{ recording.index }}</strong><time :datetime="new Date(recording.createdAt).toISOString()">{{ date(recording.createdAt) }}</time></button></li>
+            <li v-for="recording in recordings" :key="recording.index"><button class="recording" :class="{ selected: selected === recording.index }" :aria-pressed="selected === recording.index" @click="open(recording.index)"><span class="label"><strong>Timelapse #{{ recording.index }}</strong><time :datetime="new Date(recording.createdAt).toISOString()">{{ date(recording.createdAt) }}</time></span><span class="thumb" aria-hidden="true"><img v-if="pictures[recording.index]" alt="" :src="`data:image/webp;base64,${pictures[recording.index]}`"></span></button></li>
           </ol>
           <p v-if="loading" role="status">Loading timelapses…</p>
           <button v-else-if="more && !error" @click="loadMore">Load more</button>
@@ -84,9 +94,8 @@ onBeforeUnmount(() => { disposed = true; request++; });
         <section class="preview" aria-label="Selected timelapse">
           <h2 v-if="selected">Timelapse #{{ selected }}</h2>
           <ShareToggle v-if="selected" :key="selected" :index="selected" />
-          <p v-if="opening" role="status">Loading strokes…</p>
-          <p v-else-if="playbackError" class="error" role="alert">{{ playbackError }} <button @click="open(selected!)">Retry</button></p>
-          <TimelapsePlayer v-else-if="selected && strokes.length" :key="selected" :strokes="strokes" :index="selected" />
+          <p v-if="playbackError" class="error" role="alert">{{ playbackError }} <button @click="open(selected!)">Retry</button></p>
+          <TimelapsePlayer v-else-if="selected" :key="selected" :strokes="strokes" :index="selected" :loading="opening" />
           <p v-else-if="recordings.length" class="choose">Select a timelapse to preview and play it.</p>
         </section>
       </div>
@@ -100,17 +109,19 @@ button { font: inherit; cursor: pointer; border: 1px solid #d5dcc7; border-radiu
 button:focus-visible { outline: 2px solid #567b8a; outline-offset: 3px; }
 .practice { background: #465a3d; color: white; border-color: #465a3d; font-size: 13px; }
 .content { max-width: 1240px; margin: auto; padding: 40px 28px; }
-.eyebrow { font-size: 10px; letter-spacing: 2px; color: #70776e; }
 h1, h2 { font-family: Georgia, serif; font-weight: 400; }
-h1 { font-size: 32px; margin: 12px 0; }
+h1 { font-size: 32px; margin: 0 0 12px; }
 h2 { margin: 0 0 20px; font-size: 23px; }
-.intro, .choose, .empty p { color: #70776e; font-size: 14px; line-height: 1.6; }
+.choose, .empty p { color: #70776e; font-size: 14px; line-height: 1.6; }
 .archive { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 32px; margin-top: 30px; }
 ol { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 12px; }
-.recording { display: grid; width: 100%; gap: 7px; text-align: left; padding: 16px; }
+.recording { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; padding: 12px; }
+.label { display: grid; gap: 7px; min-width: 0; }
 .recording.selected { border-color: #465a3d; background: #e9eddf; }
 .recording strong { font-size: 14px; }
 .recording time { font-size: 11px; color: #70776e; }
+.thumb { display: block; width: 72px; height: 54px; background: white; border-radius: 4px; flex: none; overflow: hidden; }
+.thumb img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .preview { min-width: 0; }
 .empty { margin-top: 32px; padding: 36px; border: 1px dashed #bdc6b2; border-radius: 12px; }
 .error { color: #88492d; }

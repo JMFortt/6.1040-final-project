@@ -11,13 +11,16 @@ beforeEach(async () => {
 });
 afterAll(async () => { await database.close(); });
 const update = (sequence = 1) => ({ owner: "maya", sequence, key: crypto.randomUUID(), change: "immutable change", timestamp: 1000 });
+const picture = "cached-picture";
 
 describe("TimeLapsing", () => {
   test("its principle: Maya completes independent recordings, returns to replay them, and retries without duplicates; Ben's histories stay separate", async () => {
     const first = update();
     await recording.addUpdate(first);
-    const submission = { owner: "maya", key: crypto.randomUUID(), sequence: 2 };
+    const submission = { owner: "maya", key: crypto.randomUUID(), sequence: 2, image: picture };
     expect(await recording.complete(submission)).toEqual({ index: 1, sequence: 2 });
+    expect(await recording._picture({ owner: "maya", index: 1 })).toEqual({ found: true, image: picture });
+    await expect(recording.complete({ ...submission, image: "other-picture" })).rejects.toBeInstanceOf(UpdateKeyReused);
     expect(await recording._history({ owner: "maya", after: 0 })).toEqual({ start: 2, tip: 2, updates: [], redo: 0 });
     const reopened = new TimeLapsingConcept<string>(database.db);
     const second = update(3);
@@ -28,7 +31,7 @@ describe("TimeLapsing", () => {
     const { owner, ...expected } = first;
     expect(firstReplay).toEqual({ found: true, updates: [expected] });
     expect(await reopened.addUpdate({ ...first, sequence: 4 })).toEqual({ sequence: 1 });
-    expect(await reopened.complete({ owner, key: crypto.randomUUID(), sequence: 4 })).toEqual({ index: 2, sequence: 4 });
+    expect(await reopened.complete({ owner, key: crypto.randomUUID(), sequence: 4, image: picture })).toEqual({ index: 2, sequence: 4 });
     expect((await reopened._recordings({ owner, after: 0 })).recordings.map(r => [r.index, r.count])).toEqual([[1, 1], [2, 1]]);
     expect(await reopened._recording({ owner: "ben", index: 1, after: 0 })).toEqual({ found: false, updates: [] });
     expect(await reopened._recordings({ owner: "ben", after: 0 })).toEqual({ recordings: [] });
@@ -40,12 +43,12 @@ describe("TimeLapsing", () => {
     await events.createIndex({ owner: 1, kind: 1, index: 1 });
     await recording.addUpdate(update());
     await recording.addUpdate(update(2));
-    await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 3 });
+    await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 3, image: picture });
     const completion = await events.findOne({ owner: "maya", kind: "completion" });
     const { _id, ...duplicate } = completion!;
     await expect(events.insertOne({ ...duplicate, key: crypto.randomUUID(), sequence: 4 })).rejects.toMatchObject({ code: 11000 });
     await recording.addUpdate({ ...update(), owner: "ben" });
-    expect(await recording.complete({ owner: "ben", key: crypto.randomUUID(), sequence: 2 })).toEqual({ index: 1, sequence: 2 });
+    expect(await recording.complete({ owner: "ben", key: crypto.randomUUID(), sequence: 2, image: picture })).toEqual({ index: 1, sequence: 2 });
     expect((await recording._recordings({ owner: "maya", after: 0 })).recordings).toHaveLength(1);
   });
 
@@ -53,7 +56,7 @@ describe("TimeLapsing", () => {
     let now = 123456;
     const timed = new TimeLapsingConcept<string>(database.db, "TimedRecording", () => new Date(now));
     await timed.addUpdate({ ...update(), timestamp: 999999 });
-    const completion = { owner: "maya", key: crypto.randomUUID(), sequence: 2 };
+    const completion = { owner: "maya", key: crypto.randomUUID(), sequence: 2, image: picture };
     await timed.complete(completion);
     now += 1000;
     await timed.complete(completion);
@@ -62,14 +65,14 @@ describe("TimeLapsing", () => {
 
   test("invalid recording indices never match stored recordings", async () => {
     await recording.addUpdate(update());
-    await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 2 });
+    await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 2, image: picture });
     for (const index of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, { $gt: 0 } as never]) {
       expect(await recording._recording({ owner: "maya", index, after: 0 })).toEqual({ found: false, updates: [] });
     }
   });
 
   test("empty, malformed, reused, and stale completions leave the history intact", async () => {
-    const submission = { owner: "maya", key: crypto.randomUUID(), sequence: 1 };
+    const submission = { owner: "maya", key: crypto.randomUUID(), sequence: 1, image: picture };
     await expect(recording.complete(submission)).rejects.toBeInstanceOf(EmptyHistory);
     await expect(recording.complete({ ...submission, key: "bad" })).rejects.toBeInstanceOf(InvalidCompletion);
     const first = update();
@@ -88,13 +91,13 @@ describe("TimeLapsing", () => {
     const second = update(2);
     const results = await Promise.allSettled([
       recording.addUpdate(second),
-      recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 2 }),
+      recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 2, image: picture }),
     ]);
     expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
     expect(results.find(r => r.status === "rejected")?.reason).toBeInstanceOf(StaleHistory);
     if (results[0]!.status === "fulfilled") {
       expect((await recording._history({ owner: "maya", after: 0 })).updates).toHaveLength(2);
-      await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 3 });
+      await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 3, image: picture });
       expect((await recording._recording({ owner: "maya", index: 1, after: 0 })).updates).toHaveLength(2);
     } else {
       expect((await recording._recording({ owner: "maya", index: 1, after: 0 })).updates).toHaveLength(1);
@@ -104,11 +107,11 @@ describe("TimeLapsing", () => {
 
   test("simultaneous completion retries create one index and recordings paginate in order", async () => {
     await recording.addUpdate(update());
-    const submission = { owner: "maya", key: crypto.randomUUID(), sequence: 2 };
+    const submission = { owner: "maya", key: crypto.randomUUID(), sequence: 2, image: picture };
     expect(await Promise.all([recording.complete(submission), recording.complete(submission)])).toEqual([{ index: 1, sequence: 2 }, { index: 1, sequence: 2 }]);
     for (let index = 2; index <= 22; index++) {
       await recording.addUpdate(update(index * 2 - 1));
-      await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: index * 2 });
+      await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: index * 2, image: picture });
     }
     expect((await recording._recordings({ owner: "maya", after: 0 })).recordings).toHaveLength(20);
     expect((await recording._recordings({ owner: "maya", after: 20 })).recordings.map(r => r.index)).toEqual([21, 22]);
@@ -145,7 +148,7 @@ describe("TimeLapsing", () => {
     expect(first).toHaveLength(50);
     expect(second.map((item) => item.sequence)).toEqual([51, 52, 53]);
     expect(first[0]!.timestamp).toBeGreaterThan(first[1]!.timestamp);
-    await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 54 });
+    await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 54, image: picture });
     await recording.addUpdate(update(55));
     expect((await recording._recording({ owner: "maya", index: 1, after: 0 })).updates).toEqual(first);
     expect((await recording._recording({ owner: "maya", index: 1, after: 50 })).updates).toEqual(second);
@@ -181,6 +184,6 @@ describe("TimeLapsing", () => {
     await recording.undo({ owner: "maya", key: crypto.randomUUID(), sequence: 7, timestamp: 6000 });
     await recording.undo({ owner: "maya", key: crypto.randomUUID(), sequence: 8, timestamp: 6001 });
     await expect(recording.undo({ owner: "maya", key: crypto.randomUUID(), sequence: 9, timestamp: 6002 })).rejects.toBeInstanceOf(NothingToUndo);
-    await expect(recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 9 })).rejects.toBeInstanceOf(EmptyHistory);
+    await expect(recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 9, image: picture })).rejects.toBeInstanceOf(EmptyHistory);
   });
 });

@@ -105,6 +105,17 @@ export type RedrawWire = {
     };
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
   };
+  "/canvas/picture": {
+    input: {
+      "index": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_picture"]>[0], ["index"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "found": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_picture"]>>>, ["found"]>>;
+      "image": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_picture"]>>>, ["image"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
   "/canvas/redo": {
     input: {
       "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>[0], ["key"]>>;
@@ -135,6 +146,7 @@ export type RedrawWire = {
   };
   "/canvas/submit": {
     input: {
+      "image": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>[0], ["image"]>>;
       "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>[0], ["key"]>>;
       "sequence": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>[0], ["sequence"]>>;
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
@@ -411,6 +423,16 @@ export type RedrawWireHttp = {
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
+  "/canvas/picture": {
+    input: {
+      "index": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_picture"]>[0], ["index"]>>;
+    };
+    output: {
+      "found": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_picture"]>>>, ["found"]>>;
+      "image": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_picture"]>>>, ["image"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
   "/canvas/redo": {
     input: {
       "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>[0], ["key"]>>;
@@ -439,6 +461,7 @@ export type RedrawWireHttp = {
   };
   "/canvas/submit": {
     input: {
+      "image": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>[0], ["image"]>>;
       "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>[0], ["key"]>>;
       "sequence": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>[0], ["sequence"]>>;
     };
