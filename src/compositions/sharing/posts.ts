@@ -105,6 +105,20 @@ const Status = endpoint("/posts/status", ({ session, author, index, post }) => r
   .then(where(whether(Posting._publishedAs({ author, work: index }).is({ post }))).then(respond({ post }))),
 { validators: { input: publishInput } });
 
+/** A posted timelapse's stored picture, for any signed-in viewer. Unposted recordings stay private. */
+const Picture = endpoint("/posts/picture", ({ session, viewer, post, author, work, found, image }) => receive({ session, post })
+  .then(Sessioning.use({ session }).responds({ subject: viewer }))
+  .then(
+    where(
+      Posting._get({ post }).is({ author, work }),
+      TimeLapsing._picture({ owner: author, index: work }).is({ found, image }),
+    ).then(respond({ found, image })).named("posted"),
+    where(no(Posting._get({ post })))
+      .then(respond({ found: false, image: "" }))
+      .named("unposted"),
+  ),
+{ validators: { input: postInput } });
+
 /** A posted timelapse's strokes, for any signed-in viewer. Unposted recordings stay private. */
 const Timelapse = endpoint("/posts/timelapse", ({ session, viewer, post, after, author, work, createdAt, found, updates }) => receive({ session, post, after })
   .then(Sessioning.use({ session }).responds({ subject: viewer }))
@@ -130,4 +144,4 @@ export const postsHttp = {
   },
 } as const;
 
-export const composition = { Feed, FeedPage, Publish, Retract, RetractForgetsLikes, Like, Unlike, Status, Timelapse };
+export const composition = { Feed, FeedPage, Publish, Retract, RetractForgetsLikes, Like, Unlike, Status, Picture, Timelapse };

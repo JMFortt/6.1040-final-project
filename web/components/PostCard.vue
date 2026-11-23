@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import type { Stroke } from "../../src/drawing/stroke.ts";
 import { api } from "../client.ts";
 import { useFollowing } from "../composables/useFollowing.ts";
+import { forgetPostPicture, loadPostPicture } from "../composables/usePostPicture.ts";
 import { forgetPostStrokes, loadPostStrokes } from "../composables/usePostStrokes.ts";
 import ArtistAvatar from "./ArtistAvatar.vue";
 import DrawingPreview from "./DrawingPreview.vue";
@@ -16,8 +17,10 @@ const emit = defineEmits<{ retracted: [post: string] }>();
 const { isFollowing, isPending, toggle } = useFollowing();
 
 const card = ref<HTMLElement>();
+const picture = ref("");
 const strokes = ref<Stroke[] | null>(null);
 const loadError = ref("");
+const loadingStrokes = ref(false);
 const watching = ref(false);
 const likes = ref(props.post.likes);
 const liked = ref(props.post.liked);
@@ -28,16 +31,31 @@ const mine = computed(() => props.post.username === props.viewer);
 const artist = computed(() => props.post.username ?? "Unknown artist");
 let observer: IntersectionObserver | undefined;
 
-async function loadStrokes() {
+async function loadPicture() {
   loadError.value = "";
-  try { strokes.value = await loadPostStrokes(props.post.post); }
-  catch (cause) { loadError.value = cause instanceof Error ? cause.message : "Could not load this drawing."; }
+  try {
+    const image = await loadPostPicture(props.post.post);
+    if (image) { picture.value = image; return; }
+    strokes.value = await loadPostStrokes(props.post.post);
+  } catch (cause) { loadError.value = cause instanceof Error ? cause.message : "Could not load this drawing."; }
 }
 
-// Drawings load only when their card scrolls near the screen.
+async function showProcess() {
+  if (watching.value) { watching.value = false; return; }
+  if (!strokes.value) {
+    loadingStrokes.value = true;
+    loadError.value = "";
+    try { strokes.value = await loadPostStrokes(props.post.post); }
+    catch (cause) { loadError.value = cause instanceof Error ? cause.message : "Could not load this drawing."; return; }
+    finally { loadingStrokes.value = false; }
+  }
+  if (strokes.value) watching.value = true;
+}
+
+// The finished picture loads when the card scrolls near the screen. Strokes load to watch the process.
 onMounted(() => {
   observer = new IntersectionObserver((entries) => {
-    if (entries.some(entry => entry.isIntersecting)) { observer?.disconnect(); void loadStrokes(); }
+    if (entries.some(entry => entry.isIntersecting)) { observer?.disconnect(); void loadPicture(); }
   }, { rootMargin: "400px" });
   if (card.value) observer.observe(card.value);
 });
@@ -68,6 +86,7 @@ async function retract() {
     const result = await api.posts.retract({ post: props.post.post });
     if ("error" in result && result.error !== "NOT_FOUND") throw new Error();
     forgetPostStrokes(props.post.post);
+    forgetPostPicture(props.post.post);
     emit("retracted", props.post.post);
   } catch { actionError.value = "Could not unshare this post. Try again."; }
   finally { retracting.value = false; }
@@ -99,9 +118,10 @@ function ago(timestamp: number) {
 
     <div class="art">
       <TimelapsePlayer v-if="watching && strokes" :strokes="strokes" :index="post.index" />
+      <img v-else-if="picture" class="finished" alt="" :src="`data:image/webp;base64,${picture}`">
       <DrawingPreview v-else-if="strokes" :strokes="strokes" :label="`Finished drawing by ${artist}`" />
       <div v-else class="placeholder">
-        <p v-if="loadError" role="alert">{{ loadError }} <button class="link" @click="loadStrokes">Retry</button></p>
+        <p v-if="loadError" role="alert">{{ loadError }} <button class="link" @click="loadPicture">Retry</button></p>
         <p v-else role="status">Loading drawing…</p>
       </div>
     </div>
@@ -110,7 +130,7 @@ function ago(timestamp: number) {
       <button class="like" :class="{ on: liked }" :disabled="liking" :aria-pressed="liked" :aria-label="liked ? 'Unlike' : 'Like'" @click="toggleLike">
         <span aria-hidden="true">{{ liked ? "♥" : "♡" }}</span> {{ likes }}
       </button>
-      <button class="watch" :disabled="!strokes" :aria-pressed="watching" @click="watching = !watching">{{ watching ? "Show finished drawing" : "▶ Watch the process" }}</button>
+      <button class="watch" :disabled="loadingStrokes || (!picture && !strokes)" :aria-pressed="watching" @click="showProcess">{{ watching ? "Show finished drawing" : loadingStrokes ? "Loading…" : "▶ Watch the process" }}</button>
       <button v-if="mine" class="unshare" :disabled="retracting" @click="retract">{{ retracting ? "Unsharing…" : "Unshare" }}</button>
     </footer>
     <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
@@ -126,6 +146,7 @@ header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 time { font-size: 11px; color: #70776e; }
 .art { border-top: 1px solid #eef0e9; border-bottom: 1px solid #eef0e9; background: #fafbf7; }
 .art :deep(.player) { padding: 0 16px 16px; }
+.finished { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: white; }
 .placeholder { aspect-ratio: 4 / 3; display: grid; place-items: center; color: #70776e; font-size: 13px; }
 footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; }
 button { font: inherit; font-size: 13px; cursor: pointer; border: 1px solid #d5dcc7; border-radius: 999px; background: white; color: #27372d; padding: 6px 14px; min-height: 36px; }

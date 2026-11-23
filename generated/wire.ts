@@ -282,6 +282,20 @@ export type RedrawWire = {
     output: Record<string, never>;
     error: { error: AppWideError | "ALREADY_LIKED" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "POST_NOT_FOUND" };
   };
+  "/posts/picture": {
+    input: {
+      "post": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["_get"]>[0], ["post"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "found": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_picture"]>>>, ["found"]>>;
+      "image": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_picture"]>>>, ["image"]>>;
+    } | {
+      "found": false;
+      "image": "";
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
   "/posts/publish": {
     input: {
       "index": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>[0], ["index"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["publish"]>[0], ["work"]>]>>;
@@ -583,6 +597,19 @@ export type RedrawWireHttp = {
     };
     output: Record<string, never>;
     error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/posts/picture": {
+    input: {
+      "post": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["_get"]>[0], ["post"]>>;
+    };
+    output: {
+      "found": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_picture"]>>>, ["found"]>>;
+      "image": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_picture"]>>>, ["image"]>>;
+    } | {
+      "found": false;
+      "image": "";
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
   "/posts/publish": {
     input: {

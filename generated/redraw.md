@@ -1313,6 +1313,49 @@ then
   RequestBoundary.respond (error: "POST_NOT_FOUND", requestId)
 ```
 
+### sharing.posts.Picture
+
+Authored path: `sharing.posts.Picture`.
+- Covered by [Sharing timelapses](../design/compositions/sharing/posts.md), line 44.
+- Covered by [Sharing timelapses](../design/compositions/sharing/posts.md), line 47.
+
+```reaction
+when RequestBoundary.request (path: "/posts/picture", post, requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### sharing.posts.Picture:posted#2
+
+Authored path: `sharing.posts.Picture`.
+- Covered by [Sharing timelapses](../design/compositions/sharing/posts.md), line 44.
+- Covered by [Sharing timelapses](../design/compositions/sharing/posts.md), line 47.
+
+```reaction
+when Sessioning.use (session, subject: viewer), asked by sharing.posts.Picture
+where
+  earlier, RequestBoundary.request (path: "/posts/picture", post, requestId, session)
+  Posting._get (post) has (author, work)
+  TimeLapsing._picture (index: work, owner: author) has (found, image)
+then
+  RequestBoundary.respond (found, image, requestId)
+```
+
+### sharing.posts.Picture:unposted#2
+
+Authored path: `sharing.posts.Picture`.
+- Covered by [Sharing timelapses](../design/compositions/sharing/posts.md), line 44.
+- Covered by [Sharing timelapses](../design/compositions/sharing/posts.md), line 47.
+
+```reaction
+when Sessioning.use (session, subject: viewer), asked by sharing.posts.Picture
+where
+  earlier, RequestBoundary.request (path: "/posts/picture", post, requestId, session)
+  no Posting._get (post)
+then
+  RequestBoundary.respond (found: false, image: "", requestId)
+```
+
 ### sharing.posts.Publish
 
 Authored path: `sharing.posts.Publish`.
@@ -1558,6 +1601,7 @@ not listed here have no explicit input contract.
 - `/people/unfollow` — requires `session`, `username`
 - `/posts/feed` — requires `before`, `session`
 - `/posts/like` — requires `post`, `session`
+- `/posts/picture` — requires `post`, `session`
 - `/posts/publish` — requires `index`, `session`
 - `/posts/retract` — requires `post`, `session`
 - `/posts/status` — requires `index`, `session`

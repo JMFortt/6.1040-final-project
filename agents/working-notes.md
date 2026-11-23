@@ -4,7 +4,7 @@ Unresolved on purpose. Add a dated note when the team decides. Do not edit `deli
 
 ## 2026-11-23 — timelapse picture
 
-A completion stores the picture of that recording as an opaque string. The drawing composition accepts only a WebP, at most 1.5 MB, produced in the browser from the 1200 × 900 raster and composited over white. It is not a capture of the screen. Recordings completed before this have no picture. The feed still replays strokes until it is switched to the stored image.
+A completion stores the picture of that recording as an opaque string. The drawing composition accepts only a WebP, at most 1.5 MB, produced in the browser from the 1200 × 900 raster and composited over white. It is not a capture of the screen. Recordings completed before this have no picture. The feed shows the stored picture for the finished drawing and still loads strokes only to watch the process.
 
 ## 2026-11-23 — undo and redo
 
