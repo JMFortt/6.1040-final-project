@@ -17,7 +17,7 @@ async function load() {
   error.value = "";
   const result = await api.posts.status({ index: props.index });
   if (disposed) return;
-  if ("error" in result) error.value = "Could not check whether this timelapse is shared.";
+  if ("error" in result) error.value = "Could not check whether this artwork is shared.";
   else shared.value = result.post;
 }
 
@@ -29,13 +29,13 @@ async function toggle() {
     if (shared.value === null) {
       const result = await api.posts.publish({ index: props.index });
       if (disposed) return;
-      if ("error" in result && result.error !== "CONFLICT") throw new Error("Could not share this timelapse. Try again.");
+      if ("error" in result && result.error !== "CONFLICT") throw new Error("Could not share this artwork. Try again.");
       if ("error" in result) return void load();
       shared.value = result.post;
     } else {
       const result = await api.posts.retract({ post: shared.value });
       if (disposed) return;
-      if ("error" in result && result.error !== "NOT_FOUND") throw new Error("Could not unshare this timelapse. Try again.");
+      if ("error" in result && result.error !== "NOT_FOUND") throw new Error("Could not unshare this artwork. Try again.");
       shared.value = null;
     }
   } catch (cause) { error.value = cause instanceof Error ? cause.message : "Could not update sharing."; }
@@ -49,7 +49,7 @@ onBeforeUnmount(() => { disposed = true; });
 <template>
   <div class="share">
     <button :disabled="saving || shared === undefined" :aria-pressed="!!shared" @click="toggle">{{ saving ? "Saving…" : shared ? "Unshare" : "Share to community" }}</button>
-    <p v-if="shared" class="note">Shared: other signed-in artists can watch this timelapse.</p>
+    <p v-if="shared" class="note">Shared: other signed-in artists can watch this artwork's timelapse.</p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
   </div>
 </template>

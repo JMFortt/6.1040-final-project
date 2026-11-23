@@ -21,7 +21,7 @@ const list = (names: string[]) => names.length <= 1 ? names.join("") : `${names.
         <li v-for="row in rows" :key="row.fundamental" :class="{ low: neglected.includes(row.fundamental) }">
           <span class="name">{{ row.fundamental }}</span>
           <span class="bar" aria-hidden="true"><span :style="{ width: `${(row.count / max) * 100}%` }" /></span>
-          <span class="count">{{ row.count }}<span class="visually-hidden"> drawing{{ row.count === 1 ? "" : "s" }}</span></span>
+          <span class="count">{{ row.count }}<span class="visually-hidden"> artwork{{ row.count === 1 ? "" : "s" }}</span></span>
         </li>
       </ul>
       <p v-if="neglected.length" class="hint">Least practiced: <strong>{{ list(neglected) }}</strong></p>

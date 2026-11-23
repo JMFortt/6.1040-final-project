@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="player" :aria-label="`Timelapse ${index} playback`">
     <div class="sheet">
-      <canvas ref="canvas" :aria-label="`Drawing from timelapse ${index}`" />
+      <canvas ref="canvas" :aria-label="`Timelapse of artwork ${index}`" />
       <p v-if="loading || preparing" class="loading" role="status">Loading strokes…</p>
     </div>
     <p v-if="failure" role="alert">{{ failure }}</p>

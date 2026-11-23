@@ -6,7 +6,7 @@ const emit = defineEmits<{ navigate: [page: Page]; practice: []; help: []; signO
 
 const pages: { id: Page; label: string }[] = [
   { id: "home", label: "Home" },
-  { id: "timelapses", label: "My timelapses" },
+  { id: "timelapses", label: "My artworks" },
   { id: "community", label: "Community" },
 ];
 </script>

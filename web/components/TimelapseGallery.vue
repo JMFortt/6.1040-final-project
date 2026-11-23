@@ -25,12 +25,12 @@ async function loadMore() {
   error.value = "";
   try {
     const result = await api.canvas.timelapses({ after: recordings.value.at(-1)?.index ?? 0 });
-    if ("error" in result) throw new Error(result.error === "UNAUTHORIZED" ? "Your session ended. Sign in again to see your timelapses." : "Could not load your timelapses. Try again.");
+    if ("error" in result) throw new Error(result.error === "UNAUTHORIZED" ? "Your session ended. Sign in again to see your artworks." : "Could not load your artworks. Try again.");
     if (disposed) return;
     recordings.value.push(...result.recordings);
     more.value = result.recordings.length === 20;
     void loadPictures(result.recordings.map((recording) => recording.index));
-  } catch (cause) { error.value = cause instanceof Error ? cause.message : "Could not load your timelapses."; }
+  } catch (cause) { error.value = cause instanceof Error ? cause.message : "Could not load your artworks."; }
   finally { loading.value = false; }
 }
 
@@ -56,11 +56,11 @@ async function open(index: number) {
     for (;;) {
       const result = await api.canvas.timelapse({ index, after });
       if (disposed || current !== request) return;
-      if ("error" in result) throw new Error("Could not load this timelapse. Try again.");
-      if (!result.found) throw new Error("This timelapse is unavailable.");
+      if ("error" in result) throw new Error("Could not load this artwork. Try again.");
+      if (!result.found) throw new Error("This artwork is unavailable.");
       for (const update of result.updates) {
         const stroke = parseStroke(update.change);
-        if (!stroke) throw new Error("This timelapse uses an unsupported drawing format.");
+        if (!stroke) throw new Error("This artwork uses an unsupported format.");
         collected.push(stroke);
         after = update.sequence;
       }
@@ -68,7 +68,7 @@ async function open(index: number) {
     }
     strokes.value = collected;
   } catch (cause) {
-    if (current === request) playbackError.value = cause instanceof Error ? cause.message : "Could not load this timelapse.";
+    if (current === request) playbackError.value = cause instanceof Error ? cause.message : "Could not load this artwork.";
   } finally { if (current === request) opening.value = false; }
 }
 
@@ -80,23 +80,23 @@ onBeforeUnmount(() => { disposed = true; request++; });
 <template>
   <main class="gallery">
     <div class="content">
-      <h1>Saved timelapses</h1>
+      <h1>Saved artworks</h1>
       <p v-if="error" class="error" role="alert">{{ error }} <button @click="loadMore">Retry</button></p>
-      <div v-if="!loading && !error && !recordings.length" class="empty"><h2>Your first timelapse starts with a mark.</h2><p>Draw on your canvas, then select Submit timelapse to save it here.</p><button class="practice" @click="emit('practice')">Start Daily Practice</button></div>
+      <div v-if="!loading && !error && !recordings.length" class="empty"><h2>Your first artwork starts with a mark.</h2><p>Draw on your canvas, then select Submit artwork to save it here.</p><button class="practice" @click="emit('practice')">Start Daily Practice</button></div>
       <div v-else class="archive">
-        <nav aria-label="Saved timelapses">
+        <nav aria-label="Saved artworks">
           <ol>
-            <li v-for="recording in recordings" :key="recording.index"><button class="recording" :class="{ selected: selected === recording.index }" :aria-pressed="selected === recording.index" @click="open(recording.index)"><span class="label"><strong>Timelapse #{{ recording.index }}</strong><time :datetime="new Date(recording.createdAt).toISOString()">{{ date(recording.createdAt) }}</time></span><span class="thumb" aria-hidden="true"><img v-if="pictures[recording.index]" alt="" :src="`data:image/webp;base64,${pictures[recording.index]}`"></span></button></li>
+            <li v-for="recording in recordings" :key="recording.index"><button class="recording" :class="{ selected: selected === recording.index }" :aria-pressed="selected === recording.index" @click="open(recording.index)"><span class="label"><strong>Artwork #{{ recording.index }}</strong><time :datetime="new Date(recording.createdAt).toISOString()">{{ date(recording.createdAt) }}</time></span><span class="thumb" aria-hidden="true"><img v-if="pictures[recording.index]" alt="" :src="`data:image/webp;base64,${pictures[recording.index]}`"></span></button></li>
           </ol>
-          <p v-if="loading" role="status">Loading timelapses…</p>
+          <p v-if="loading" role="status">Loading artworks…</p>
           <button v-else-if="more && !error" @click="loadMore">Load more</button>
         </nav>
-        <section class="preview" aria-label="Selected timelapse">
-          <h2 v-if="selected">Timelapse #{{ selected }}</h2>
+        <section class="preview" aria-label="Selected artwork">
+          <h2 v-if="selected">Artwork #{{ selected }}</h2>
           <ShareToggle v-if="selected" :key="selected" :index="selected" />
           <p v-if="playbackError" class="error" role="alert">{{ playbackError }} <button @click="open(selected!)">Retry</button></p>
           <TimelapsePlayer v-else-if="selected" :key="selected" :strokes="strokes" :index="selected" :loading="opening" />
-          <p v-else-if="recordings.length" class="choose">Select a timelapse to preview and play it.</p>
+          <p v-else-if="recordings.length" class="choose">Select an artwork to preview it and play its timelapse.</p>
         </section>
       </div>
     </div>

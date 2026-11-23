@@ -6,7 +6,7 @@ const cache = new Map<string, Promise<string>>();
 
 async function fetchPicture(post: PostId): Promise<string> {
   const result = await api.posts.picture({ post });
-  if ("error" in result) throw new Error("Could not load this drawing. Try again.");
+  if ("error" in result) throw new Error("Could not load this artwork. Try again.");
   return result.found ? result.image : "";
 }
 

@@ -26,7 +26,7 @@ onMounted(load);
     <div class="content">
       <p class="eyebrow">COMMUNITY</p>
       <h1>Artists</h1>
-      <p class="intro">Follow artists whose process you want to learn from. Their shared timelapses appear in the Following tab of your feed on Home.</p>
+      <p class="intro">Follow artists whose process you want to learn from. Their shared artworks appear in the Following tab of your feed on Home.</p>
 
       <div class="layout">
         <section class="column" aria-labelledby="following-title">

@@ -72,9 +72,9 @@ const storage = useCanvasHistory(async (strokes, mode = "replace") => {
 const { pending, saved, canUndo, canRedo, saving, loading, error, unsaved, submitting, submissionPending, blocked, rejectedKey } = storage;
 const navigationDisabled = computed(() => unsaved.value || drawing.value || finishing.value || saving.value || submitting.value || restoring.value || loading.value);
 const status = computed(() => loading.value || restoring.value ? "Restoring canvas…"
-  : submitting.value ? "Submitting timelapse…"
-  : error.value ? "Not saved" : saving.value || unsaved.value ? "Saving drawing…"
-  : saved.value ? "Drawing saved" : "Ready to draw");
+  : submitting.value ? "Submitting artwork…"
+  : error.value ? "Not saved" : saving.value || unsaved.value ? "Saving artwork…"
+  : saved.value ? "Artwork saved" : "Ready to draw");
 
 function chooseTool(next: Tool) {
   toolSize[tool.value] = size.value;
@@ -342,7 +342,7 @@ onBeforeUnmount(() => {
 <template>
   <main class="studio">
     <header class="studio-header">
-      <a class="wordmark" href="/" aria-label="Redraw home" :aria-disabled="navigationDisabled" :title="navigationDisabled ? 'Finish drawing and saving before going home' : 'Redraw home'" @click.prevent="!navigationDisabled && emit('home')"><span class="brand-mark" aria-hidden="true">r.</span>redraw<span class="brand-dot">/</span></a>
+      <a class="wordmark" href="/" aria-label="Redraw home" :aria-disabled="navigationDisabled" :title="navigationDisabled ? 'Finish saving this artwork before going home' : 'Redraw home'" @click.prevent="!navigationDisabled && emit('home')"><span class="brand-mark" aria-hidden="true">r.</span>redraw<span class="brand-dot">/</span></a>
       <div class="document-title"><span class="document-mark" aria-hidden="true">▧</span><span>Your canvas<small>A little practice, every day.</small></span></div>
       <div class="account"><span class="avatar">{{ username.charAt(0).toUpperCase() }}</span><span class="username">{{ username }}</span>
         <button class="sign-out" :disabled="navigationDisabled" @click="emit('signOut')">Sign out</button>
@@ -410,10 +410,10 @@ onBeforeUnmount(() => {
       </div>
       </div>
       <div class="submission-bar">
-        <p v-if="submittedIndex" role="status">Timelapse #{{ submittedIndex }} saved. Your canvas is ready for a new drawing.</p>
-        <p v-else>Submit saves this drawing as a timelapse and starts a blank canvas.</p>
-        <div><button :disabled="navigationDisabled" @click="emit('timelapses')">View saved timelapses</button>
-          <button class="submit" :disabled="!ready || !saved || pending.length > 0 || saving || submitting || drawing || finishing || restoring || blocked" @click="submitDrawing">{{ submitting ? 'Submitting…' : submissionPending ? 'Retry submission' : 'Submit timelapse' }}</button></div>
+        <p v-if="submittedIndex" role="status">Artwork #{{ submittedIndex }} saved. Your canvas is ready for a new artwork.</p>
+        <p v-else>Submit saves this artwork and starts a blank canvas.</p>
+        <div><button :disabled="navigationDisabled" @click="emit('timelapses')">View saved artworks</button>
+          <button class="submit" :disabled="!ready || !saved || pending.length > 0 || saving || submitting || drawing || finishing || restoring || blocked" @click="submitDrawing">{{ submitting ? 'Submitting…' : submissionPending ? 'Retry submission' : 'Submit artwork' }}</button></div>
       </div>
     </section>
 
@@ -422,7 +422,7 @@ onBeforeUnmount(() => {
     <footer class="studio-footer">
       <div class="save-status" role="status" aria-live="polite">
         <span class="status-dot" :class="{ waiting: saving || loading || restoring, failed: !!error }" />
-        <span class="status-label"><span>{{ status }}</span><span class="status-sizer" aria-hidden="true">Submitting timelapse…</span><span class="status-sizer" aria-hidden="true">Restoring canvas…</span><span class="status-sizer" aria-hidden="true">Saving drawing…</span></span>
+        <span class="status-label"><span>{{ status }}</span><span class="status-sizer" aria-hidden="true">Submitting artwork…</span><span class="status-sizer" aria-hidden="true">Restoring canvas…</span><span class="status-sizer" aria-hidden="true">Saving artwork…</span></span>
       </div>
       <div class="privacy"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 9V6a4 4 0 0 1 8 0v3 M4 9h12v9H4Z" /></svg>Your canvas is private.</div>
     </footer>

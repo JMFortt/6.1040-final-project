@@ -37,7 +37,7 @@ async function loadPicture() {
     const image = await loadPostPicture(props.post.post);
     if (image) { picture.value = image; return; }
     strokes.value = await loadPostStrokes(props.post.post);
-  } catch (cause) { loadError.value = cause instanceof Error ? cause.message : "Could not load this drawing."; }
+  } catch (cause) { loadError.value = cause instanceof Error ? cause.message : "Could not load this artwork."; }
 }
 
 async function showProcess() {
@@ -46,7 +46,7 @@ async function showProcess() {
     loadingStrokes.value = true;
     loadError.value = "";
     try { strokes.value = await loadPostStrokes(props.post.post); }
-    catch (cause) { loadError.value = cause instanceof Error ? cause.message : "Could not load this drawing."; return; }
+    catch (cause) { loadError.value = cause instanceof Error ? cause.message : "Could not load this artwork."; return; }
     finally { loadingStrokes.value = false; }
   }
   if (strokes.value) watching.value = true;
@@ -104,12 +104,12 @@ function ago(timestamp: number) {
 </script>
 
 <template>
-  <article ref="card" class="card" :aria-label="`${artist}'s timelapse #${post.index}`">
+  <article ref="card" class="card" :aria-label="`${artist}'s artwork #${post.index}`">
     <header>
       <ArtistAvatar :username="post.username" />
       <div class="who">
         <strong>{{ artist }}<span v-if="mine" class="you"> · you</span></strong>
-        <time :datetime="new Date(post.createdAt).toISOString()" :title="new Date(post.createdAt).toLocaleString()">{{ ago(post.createdAt) }} · Timelapse #{{ post.index }}</time>
+        <time :datetime="new Date(post.createdAt).toISOString()" :title="new Date(post.createdAt).toLocaleString()">{{ ago(post.createdAt) }} · Artwork #{{ post.index }}</time>
       </div>
       <button v-if="!mine && post.username" class="follow" :class="{ on: isFollowing(post.username) }" :disabled="isPending(post.username)" :aria-pressed="isFollowing(post.username)" @click="toggle(post.username)">
         {{ isFollowing(post.username) ? "Following" : "Follow" }}
@@ -119,10 +119,10 @@ function ago(timestamp: number) {
     <div class="art">
       <TimelapsePlayer v-if="watching && strokes" :strokes="strokes" :index="post.index" />
       <img v-else-if="picture" class="finished" alt="" :src="`data:image/webp;base64,${picture}`">
-      <DrawingPreview v-else-if="strokes" :strokes="strokes" :label="`Finished drawing by ${artist}`" />
+      <DrawingPreview v-else-if="strokes" :strokes="strokes" :label="`Finished artwork by ${artist}`" />
       <div v-else class="placeholder">
         <p v-if="loadError" role="alert">{{ loadError }} <button class="link" @click="loadPicture">Retry</button></p>
-        <p v-else role="status">Loading drawing…</p>
+        <p v-else role="status">Loading artwork…</p>
       </div>
     </div>
 
@@ -130,7 +130,7 @@ function ago(timestamp: number) {
       <button class="like" :class="{ on: liked }" :disabled="liking" :aria-pressed="liked" :aria-label="liked ? 'Unlike' : 'Like'" @click="toggleLike">
         <span aria-hidden="true">{{ liked ? "♥" : "♡" }}</span> {{ likes }}
       </button>
-      <button class="watch" :disabled="loadingStrokes || (!picture && !strokes)" :aria-pressed="watching" @click="showProcess">{{ watching ? "Show finished drawing" : loadingStrokes ? "Loading…" : "▶ Watch the process" }}</button>
+      <button class="watch" :disabled="loadingStrokes || (!picture && !strokes)" :aria-pressed="watching" @click="showProcess">{{ watching ? "Show finished artwork" : loadingStrokes ? "Loading…" : "▶ Watch the timelapse" }}</button>
       <button v-if="mine" class="unshare" :disabled="retracting" @click="retract">{{ retracting ? "Unsharing…" : "Unshare" }}</button>
     </footer>
     <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>

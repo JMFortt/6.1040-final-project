@@ -41,7 +41,7 @@ onBeforeUnmount(() => { disposed = true; });
           <p v-if="streakError" class="error" role="alert">{{ streakError }} <button class="retry" @click="loadStreak">Retry</button></p>
           <template v-else>
             <p class="count" aria-live="polite"><strong>{{ streak ?? "–" }}</strong> {{ streak === 1 ? "week" : "weeks" }}</p>
-            <p class="hint">{{ streak === 0 ? "Submit a drawing this week to start one." : "Submit a drawing each week, Monday to Sunday, to keep it going." }}</p>
+            <p class="hint">{{ streak === 0 ? "Submit an artwork this week to start one." : "Submit an artwork each week, Monday to Sunday, to keep it going." }}</p>
           </template>
         </div>
         <CoverageCard />

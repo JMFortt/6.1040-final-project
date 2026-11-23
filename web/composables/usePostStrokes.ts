@@ -10,11 +10,11 @@ async function fetchStrokes(post: PostId): Promise<Stroke[]> {
   const strokes: Stroke[] = [];
   for (;;) {
     const result = await api.posts.timelapse({ post, after });
-    if ("error" in result) throw new Error("Could not load this drawing. Try again.");
+    if ("error" in result) throw new Error("Could not load this artwork. Try again.");
     if (!result.found) throw new Error("This post is no longer shared.");
     for (const update of result.updates) {
       const stroke = parseStroke(update.change);
-      if (!stroke) throw new Error("This drawing uses an unsupported format.");
+      if (!stroke) throw new Error("This artwork uses an unsupported format.");
       strokes.push(stroke);
       after = update.sequence;
     }

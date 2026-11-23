@@ -74,7 +74,7 @@ onBeforeUnmount(() => { disposed = true; });
     <!-- Encourage following when the Following tab would otherwise be empty. -->
     <section v-if="tab === 'following' && peopleLoaded && !followsAnyone" class="welcome" aria-labelledby="follow-title">
       <h3 id="follow-title">Fill your feed with artists who inspire you</h3>
-      <p>Follow a few artists and their new timelapses will show up here. Watching how someone else builds up a drawing is one of the fastest ways to pick up new approaches.</p>
+      <p>Follow a few artists and their new artworks will show up here. Watching how someone else builds up an artwork is one of the fastest ways to pick up new approaches.</p>
       <ArtistSuggestions variant="cards" :limit="6" />
       <button class="secondary" @click="tab = 'discover'">Or browse everyone's work in Discover</button>
     </section>
@@ -87,8 +87,8 @@ onBeforeUnmount(() => { disposed = true; });
       </div>
       <div v-else-if="tab === 'discover' && !loading && !posts.length && !error" class="empty">
         <h3>Nothing shared yet.</h3>
-        <p>Submit a drawing, then share it from My timelapses to start the feed.</p>
-        <button class="secondary" @click="emit('timelapses')">My timelapses</button>
+        <p>Submit an artwork, then share it from My artworks to start the feed.</p>
+        <button class="secondary" @click="emit('timelapses')">My artworks</button>
       </div>
       <ol class="posts">
         <li v-for="post in shown" :key="post.post"><PostCard :post="post" :viewer="username" @retracted="removed" /></li>
