@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { EmptyHistory, InvalidCompletion, StaleHistory, TimeLapsingConcept, UpdateKeyReused } from "../../src/concepts/TimeLapsing/TimeLapsing.ts";
+import { EmptyHistory, InvalidCompletion, NothingToRedo, NothingToUndo, StaleHistory, TimeLapsingConcept, UpdateKeyReused } from "../../src/concepts/TimeLapsing/TimeLapsing.ts";
 import { openTestDb, type TestDb } from "../test-db.ts";
 
 let database: TestDb;
@@ -18,7 +18,7 @@ describe("TimeLapsing", () => {
     await recording.addUpdate(first);
     const submission = { owner: "maya", key: crypto.randomUUID(), sequence: 2 };
     expect(await recording.complete(submission)).toEqual({ index: 1, sequence: 2 });
-    expect(await recording._history({ owner: "maya", after: 0 })).toEqual({ start: 2, updates: [] });
+    expect(await recording._history({ owner: "maya", after: 0 })).toEqual({ start: 2, tip: 2, updates: [], redo: 0 });
     const reopened = new TimeLapsingConcept<string>(database.db);
     const second = update(3);
     await reopened.addUpdate(second);
@@ -98,7 +98,7 @@ describe("TimeLapsing", () => {
       expect((await recording._recording({ owner: "maya", index: 1, after: 0 })).updates).toHaveLength(2);
     } else {
       expect((await recording._recording({ owner: "maya", index: 1, after: 0 })).updates).toHaveLength(1);
-      expect(await recording._history({ owner: "maya", after: 0 })).toEqual({ start: 2, updates: [] });
+      expect(await recording._history({ owner: "maya", after: 0 })).toEqual({ start: 2, tip: 2, updates: [], redo: 0 });
     }
   });
 
@@ -120,7 +120,7 @@ describe("TimeLapsing", () => {
     expect(await reopened.addUpdate({ ...input, sequence: 2 })).toEqual({ sequence: 1 });
     expect((await reopened._history({ owner: "maya", after: 0 })).updates).toHaveLength(1);
     await expect(reopened.addUpdate({ ...input, change: "different" })).rejects.toBeInstanceOf(UpdateKeyReused);
-    expect(await reopened._history({ owner: "ben", after: 0 })).toEqual({ start: 0, updates: [] });
+    expect(await reopened._history({ owner: "ben", after: 0 })).toEqual({ start: 0, tip: 0, updates: [], redo: 0 });
   });
 
   test("racing appends cannot overwrite a sequence; the loser can retry", async () => {
@@ -150,5 +150,37 @@ describe("TimeLapsing", () => {
     expect((await recording._recording({ owner: "maya", index: 1, after: 0 })).updates).toEqual(first);
     expect((await recording._recording({ owner: "maya", index: 1, after: 50 })).updates).toEqual(second);
     expect((await recording._history({ owner: "maya", after: 0 })).updates.map(u => u.sequence)).toEqual([55]);
+  });
+
+  test("undo and redo fold the drawing, and a new stroke drops the redo", async () => {
+    const first = update(1);
+    const second = update(2);
+    await recording.addUpdate(first);
+    await recording.addUpdate(second);
+    const undoKey = crypto.randomUUID();
+    const undone = await recording.undo({ owner: "maya", key: undoKey, sequence: 3, timestamp: 2000 });
+    expect(undone).toEqual({ sequence: 3, removed: second.key });
+    expect(await recording.undo({ owner: "maya", key: undoKey, sequence: 3, timestamp: 2000 })).toEqual(undone);
+    expect(await recording._history({ owner: "maya", after: 0 })).toEqual({
+      start: 0, tip: 3, redo: 1,
+      updates: [{ key: first.key, sequence: 1, change: first.change, timestamp: first.timestamp }],
+    });
+    const redoKey = crypto.randomUUID();
+    const redone = await recording.redo({ owner: "maya", key: redoKey, sequence: 4, timestamp: 3000 });
+    expect(redone).toEqual({ sequence: 4, key: second.key, change: second.change, timestamp: second.timestamp });
+    expect(await recording.redo({ owner: "maya", key: redoKey, sequence: 4, timestamp: 3000 })).toEqual(redone);
+    await expect(recording.redo({ owner: "maya", key: crypto.randomUUID(), sequence: 5, timestamp: 3001 })).rejects.toBeInstanceOf(NothingToRedo);
+    await recording.undo({ owner: "maya", key: crypto.randomUUID(), sequence: 5, timestamp: 4000 });
+    const third = update(6);
+    await recording.addUpdate(third);
+    await expect(recording.redo({ owner: "maya", key: crypto.randomUUID(), sequence: 7, timestamp: 5000 })).rejects.toBeInstanceOf(NothingToRedo);
+    const history = await recording._history({ owner: "maya", after: 0 });
+    expect(history.updates.map((item) => item.key)).toEqual([first.key, third.key]);
+    expect(history.tip).toBe(6);
+    expect(history.redo).toBe(0);
+    await recording.undo({ owner: "maya", key: crypto.randomUUID(), sequence: 7, timestamp: 6000 });
+    await recording.undo({ owner: "maya", key: crypto.randomUUID(), sequence: 8, timestamp: 6001 });
+    await expect(recording.undo({ owner: "maya", key: crypto.randomUUID(), sequence: 9, timestamp: 6002 })).rejects.toBeInstanceOf(NothingToUndo);
+    await expect(recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 9 })).rejects.toBeInstanceOf(EmptyHistory);
   });
 });

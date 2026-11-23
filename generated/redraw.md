@@ -216,10 +216,20 @@ Defined in [TimeLapsing](../design/concepts/TimeLapsing.md), line 1.
   - Refuses `UPDATE_KEY_REUSED`: This update identifier has already been used.
   - Refuses `STALE_HISTORY`: Load the latest history before adding this update.
   - Refuses `EMPTY_HISTORY`: There are no updates to complete.
+- `undo(owner: Owner, key: String, sequence: Number, timestamp: Number) : returns (sequence: Number, removed: String)`
+  - Refuses `INVALID_UPDATE`: The update is not valid.
+  - Refuses `UPDATE_KEY_REUSED`: This update identifier has already been used.
+  - Refuses `STALE_HISTORY`: Load the latest history before adding this update.
+  - Refuses `NOTHING_TO_UNDO`: There is no stroke to undo.
+- `redo(owner: Owner, key: String, sequence: Number, timestamp: Number) : returns (sequence: Number, key: String, change: String, timestamp: Number)`
+  - Refuses `INVALID_UPDATE`: The update is not valid.
+  - Refuses `UPDATE_KEY_REUSED`: This update identifier has already been used.
+  - Refuses `STALE_HISTORY`: Load the latest history before adding this update.
+  - Refuses `NOTHING_TO_REDO`: There is no stroke to redo.
 
 #### Queries
 
-- `_history(owner: Owner, after: Number) : one (start: Number, updates: History)`
+- `_history(owner: Owner, after: Number) : one (start: Number, tip: Number, updates: History, redo: Number)`
 - `_recordings(owner: Owner, after: Number) : one (recordings: Recordings)`
 - `_recording(owner: Owner, index: Number, after: Number) : one (found: Flag, updates: History)`
 
@@ -366,9 +376,49 @@ Authored path: `drawing.canvas.History`.
 when Sessioning.use (session, subject: owner), asked by drawing.canvas.History
 where
   earlier, RequestBoundary.request (after, path: "/canvas/history", requestId, session)
-  TimeLapsing._history (after, owner) has (start, updates)
+  TimeLapsing._history (after, owner) has (redo, start, tip, updates)
 then
-  RequestBoundary.respond (requestId, start, updates)
+  RequestBoundary.respond (redo, requestId, start, tip, updates)
+```
+
+### drawing.canvas.Redo
+
+Authored path: `drawing.canvas.Redo`.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 9.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 19.
+
+```reaction
+when RequestBoundary.request (key, path: "/canvas/redo", requestId, sequence, session, timestamp)
+then
+  Sessioning.use (session)
+```
+
+### drawing.canvas.Redo#2
+
+Authored path: `drawing.canvas.Redo`.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 9.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 19.
+
+```reaction
+when Sessioning.use (session, subject: owner), asked by drawing.canvas.Redo
+where
+  earlier, RequestBoundary.request (key, path: "/canvas/redo", requestId, sequence, session, timestamp)
+then
+  TimeLapsing.redo (key, owner, sequence, timestamp)
+```
+
+### drawing.canvas.Redo#3
+
+Authored path: `drawing.canvas.Redo`.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 9.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 19.
+
+```reaction
+when TimeLapsing.redo (key, owner, sequence, timestamp, change, result.key: restored, result.sequence: saved, result.timestamp: occurred), asked by drawing.canvas.Redo#2
+where
+  earlier, RequestBoundary.request (key, path: "/canvas/redo", requestId, sequence, session, timestamp)
+then
+  RequestBoundary.respond (change, key: restored, requestId, sequence: saved, timestamp: occurred)
 ```
 
 ### drawing.canvas.Stroke
@@ -414,8 +464,8 @@ then
 ### drawing.canvas.Submit
 
 Authored path: `drawing.canvas.Submit`.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 8.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 17.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 10.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 21.
 
 ```reaction
 when RequestBoundary.request (key, path: "/canvas/submit", requestId, sequence, session)
@@ -426,8 +476,8 @@ then
 ### drawing.canvas.Submit#2
 
 Authored path: `drawing.canvas.Submit`.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 8.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 17.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 10.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 21.
 
 ```reaction
 when Sessioning.use (session, subject: owner), asked by drawing.canvas.Submit
@@ -440,8 +490,8 @@ then
 ### drawing.canvas.Submit#3
 
 Authored path: `drawing.canvas.Submit`.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 8.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 17.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 10.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 21.
 
 ```reaction
 when TimeLapsing.complete (key, owner, sequence, index, result.sequence: saved), asked by drawing.canvas.Submit#2
@@ -454,8 +504,8 @@ then
 ### drawing.canvas.Timelapse
 
 Authored path: `drawing.canvas.Timelapse`.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 10.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 19.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 12.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 23.
 
 ```reaction
 when RequestBoundary.request (after, index, path: "/canvas/timelapse", requestId, session)
@@ -466,8 +516,8 @@ then
 ### drawing.canvas.Timelapse#2
 
 Authored path: `drawing.canvas.Timelapse`.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 10.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 19.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 12.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 23.
 
 ```reaction
 when Sessioning.use (session, subject: owner), asked by drawing.canvas.Timelapse
@@ -481,8 +531,8 @@ then
 ### drawing.canvas.Timelapses
 
 Authored path: `drawing.canvas.Timelapses`.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 9.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 19.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 11.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 23.
 
 ```reaction
 when RequestBoundary.request (after, path: "/canvas/timelapses", requestId, session)
@@ -493,8 +543,8 @@ then
 ### drawing.canvas.Timelapses#2
 
 Authored path: `drawing.canvas.Timelapses`.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 9.
-- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 19.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 11.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 23.
 
 ```reaction
 when Sessioning.use (session, subject: owner), asked by drawing.canvas.Timelapses
@@ -503,6 +553,46 @@ where
   TimeLapsing._recordings (after, owner) has (recordings)
 then
   RequestBoundary.respond (recordings, requestId)
+```
+
+### drawing.canvas.Undo
+
+Authored path: `drawing.canvas.Undo`.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 8.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 19.
+
+```reaction
+when RequestBoundary.request (key, path: "/canvas/undo", requestId, sequence, session, timestamp)
+then
+  Sessioning.use (session)
+```
+
+### drawing.canvas.Undo#2
+
+Authored path: `drawing.canvas.Undo`.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 8.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 19.
+
+```reaction
+when Sessioning.use (session, subject: owner), asked by drawing.canvas.Undo
+where
+  earlier, RequestBoundary.request (key, path: "/canvas/undo", requestId, sequence, session, timestamp)
+then
+  TimeLapsing.undo (key, owner, sequence, timestamp)
+```
+
+### drawing.canvas.Undo#3
+
+Authored path: `drawing.canvas.Undo`.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 8.
+- Covered by [Persistent canvas](../design/compositions/drawing/canvas.md), line 19.
+
+```reaction
+when TimeLapsing.undo (key, owner, sequence, timestamp, removed, result.sequence: saved), asked by drawing.canvas.Undo#2
+where
+  earlier, RequestBoundary.request (key, path: "/canvas/undo", requestId, sequence, session, timestamp)
+then
+  RequestBoundary.respond (removed, requestId, sequence: saved)
 ```
 
 ### practice.streaks.Current
@@ -1426,10 +1516,12 @@ not listed here have no explicit input contract.
 - `/auth/me` — requires `session`
 - `/auth/register` — requires `password`, `username`
 - `/canvas/history` — requires `after`, `session`
+- `/canvas/redo` — requires `key`, `sequence`, `session`, `timestamp`
 - `/canvas/stroke` — requires `change`, `key`, `sequence`, `session`, `timestamp`
 - `/canvas/submit` — requires `key`, `sequence`, `session`
 - `/canvas/timelapse` — requires `after`, `index`, `session`
 - `/canvas/timelapses` — requires `after`, `session`
+- `/canvas/undo` — requires `key`, `sequence`, `session`, `timestamp`
 - `/people/follow` — requires `session`, `username`
 - `/people/following` — requires `session`
 - `/people/search` — requires `prefix`, `session`

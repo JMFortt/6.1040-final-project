@@ -52,6 +52,12 @@ export class StrokeRenderer {
   private active: Stroke | null = null;
   private disposed = false;
   private paused = false;
+  /** Recent full canvases, newest last, so undo and redo can swap the picture without replaying every stroke. */
+  private frames: HTMLCanvasElement[] = [];
+  private undone: HTMLCanvasElement[] = [];
+  private omitted = 0;
+  private tracking = false;
+  private readonly kept = 24;
 
   constructor(private readonly view: HTMLCanvasElement) {
     view.width = CANVAS_WIDTH;
@@ -64,6 +70,11 @@ export class StrokeRenderer {
     this.brush.useModule({ onChangeConfig: (config, pressure) => {
       config.size *= Math.max(0.12, pressure);
     } });
+  }
+
+  /** Remember each finished stroke so the working canvas can undo without a full restore. */
+  track() {
+    this.tracking = true;
   }
 
   begin(stroke: Stroke) {
@@ -119,6 +130,7 @@ export class StrokeRenderer {
         ctx.globalCompositeOperation = "source-over";
         this.active = null;
         cancelAnimationFrame(this.frame);
+        if (this.tracking) this.remember();
         if (!this.disposed && !this.paused) this.paint();
         resolve();
       });
@@ -126,15 +138,76 @@ export class StrokeRenderer {
     });
   }
 
-  async restore(strokes: readonly Stroke[]) {
-    this.base.getContext("2d")!.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    this.paint();
-    for (const stroke of strokes) {
-      if (this.disposed) return;
-      this.begin(stroke);
-      for (const point of stroke.points) this.point(point);
-      await this.finish();
+  async restore(strokes: readonly Stroke[], options?: { quiet?: boolean }) {
+    if (this.tracking) {
+      this.frames = [];
+      this.undone = [];
+      this.omitted = 0;
     }
+    const quiet = options?.quiet ?? false;
+    const wasPaused = this.paused;
+    if (quiet) this.paused = true;
+    try {
+      this.base.getContext("2d")!.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      if (!quiet) this.paint();
+      for (const stroke of strokes) {
+        if (this.disposed) return;
+        await this.append(stroke);
+      }
+    } finally {
+      if (quiet) {
+        this.paused = wasPaused;
+        if (!this.disposed && !this.paused) this.paint();
+      }
+    }
+  }
+
+  async append(stroke: Stroke) {
+    this.begin(stroke);
+    for (const point of stroke.points) this.point(point);
+    await this.finish();
+  }
+
+  /** True when the previous picture is still kept, including a blank canvas before the first stroke. */
+  canRewind() {
+    return this.frames.length > 1 || (this.frames.length === 1 && this.omitted === 0);
+  }
+
+  canReplay() {
+    return this.undone.length > 0;
+  }
+
+  rewind() {
+    const current = this.frames.pop();
+    if (!current) return;
+    this.undone.push(current);
+    this.show(this.frames.at(-1));
+  }
+
+  replayForward() {
+    const next = this.undone.pop();
+    if (!next) return;
+    this.frames.push(next);
+    this.show(next);
+  }
+
+  private remember() {
+    this.undone = [];
+    const copy = surface();
+    copy.getContext("2d")!.drawImage(this.base, 0, 0);
+    this.frames.push(copy);
+    if (this.frames.length > this.kept) {
+      this.frames.shift();
+      this.omitted += 1;
+    }
+  }
+
+  private show(source: HTMLCanvasElement | undefined) {
+    const ctx = this.base.getContext("2d")!;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    if (source) ctx.drawImage(source, 0, 0);
+    this.paint();
   }
 
   dispose() {

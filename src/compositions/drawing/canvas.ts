@@ -18,6 +18,12 @@ const strokeInput: EndpointValidator = (value) => isObject(value) && session(val
   && Object.keys(value).every((key) => ["session", "key", "sequence", "timestamp", "change"].includes(key))
   ? { ok: true } : { ok: false, detail: "Expected a supported stroke with valid points and settings." };
 
+const revisionInput: EndpointValidator = (value) => isObject(value) && session(value.session)
+  && typeof value.key === "string" && Number.isSafeInteger(value.sequence) && Number(value.sequence) > 0
+  && Number.isSafeInteger(value.timestamp) && Number(value.timestamp) >= 0
+  && Object.keys(value).every((key) => ["session", "key", "sequence", "timestamp"].includes(key))
+  ? { ok: true } : { ok: false, detail: "Expected an undo or redo key and sequence." };
+
 const submitInput: EndpointValidator = (value) => isObject(value) && session(value.session)
   && typeof value.key === "string" && Number.isSafeInteger(value.sequence) && Number(value.sequence) > 0
   && Object.keys(value).every((key) => ["session", "key", "sequence"].includes(key))
@@ -29,9 +35,9 @@ const timelapseInput: EndpointValidator = (value) => isObject(value) && session(
   && Object.keys(value).every((key) => ["session", "index", "after"].includes(key))
   ? { ok: true } : { ok: false, detail: "Expected a timelapse index and cursor." };
 
-const History = endpoint("/canvas/history", ({ session, owner, after, start, updates }) => receive({ session, after })
+const History = endpoint("/canvas/history", ({ session, owner, after, start, tip, updates, redo }) => receive({ session, after })
   .then(Sessioning.use({ session }).responds({ subject: owner }))
-  .then(where(TimeLapsing._history({ owner, after }).is({ start, updates })).then(respond({ start, updates }))),
+  .then(where(TimeLapsing._history({ owner, after }).is({ start, tip, updates, redo })).then(respond({ start, tip, updates, redo }))),
 { validators: { input: historyInput } });
 
 const Stroke = endpoint("/canvas/stroke", ({ session, owner, key, sequence, change, timestamp, saved }) =>
@@ -40,6 +46,20 @@ const Stroke = endpoint("/canvas/stroke", ({ session, owner, key, sequence, chan
     .then(TimeLapsing.addUpdate({ owner, key, sequence, change, timestamp }).responds({ sequence: saved }))
     .then(respond({ sequence: saved })),
 { validators: { input: strokeInput } });
+
+const Undo = endpoint("/canvas/undo", ({ session, owner, key, sequence, timestamp, saved, removed }) =>
+  receive({ session, key, sequence, timestamp })
+    .then(Sessioning.use({ session }).responds({ subject: owner }))
+    .then(TimeLapsing.undo({ owner, key, sequence, timestamp }).responds({ sequence: saved, removed }))
+    .then(respond({ sequence: saved, removed })),
+{ validators: { input: revisionInput } });
+
+const Redo = endpoint("/canvas/redo", ({ session, owner, key, sequence, timestamp, saved, restored, change, occurred }) =>
+  receive({ session, key, sequence, timestamp })
+    .then(Sessioning.use({ session }).responds({ subject: owner }))
+    .then(TimeLapsing.redo({ owner, key, sequence, timestamp }).responds({ sequence: saved, key: restored, change, timestamp: occurred }))
+    .then(respond({ sequence: saved, key: restored, change, timestamp: occurred })),
+{ validators: { input: revisionInput } });
 
 const Submit = endpoint("/canvas/submit", ({ session, owner, key, sequence, index, saved }) => receive({ session, key, sequence })
   .then(Sessioning.use({ session }).responds({ subject: owner }))
@@ -65,7 +85,9 @@ export const canvasHttp = {
     UPDATE_KEY_REUSED: "INVALID_REQUEST",
     INVALID_COMPLETION: "INVALID_REQUEST",
     EMPTY_HISTORY: "INVALID_REQUEST",
+    NOTHING_TO_UNDO: "INVALID_REQUEST",
+    NOTHING_TO_REDO: "INVALID_REQUEST",
   },
 } as const;
 
-export const composition = { History, Stroke, Submit, Timelapses, Timelapse };
+export const composition = { History, Stroke, Undo, Redo, Submit, Timelapses, Timelapse };
