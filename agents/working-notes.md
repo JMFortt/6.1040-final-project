@@ -4,7 +4,7 @@ Unresolved on purpose. Add a dated note when the team decides. Do not edit `deli
 
 ## 2026-11-23 — StreakTracking + CoverageTracking (Julia)
 
-Julia chose a **weekly** streak, with weeks running Monday 00:00 to Sunday 24:00 America/New_York. [`StreakTracking`](../design/concepts/StreakTracking.md) stays close to the F3 deliverable. The caller passes a period number, so the concept stays general, and the composition computes the Eastern Time week. Implemented on 2026-11-23 with the [streaks composition](../design/compositions/practice/streaks.md). There is no frontend yet; the dashboard is a usability-checkpoint item.
+Julia chose a **weekly** streak, with weeks running Monday 00:00 to Sunday 24:00 America/New_York. [`StreakTracking`](../design/concepts/StreakTracking.md) stays close to the F3 deliverable. The caller passes a period number, so the concept stays general, and the composition computes the Eastern Time week. Implemented on 2026-11-23 with the [streaks composition](../design/compositions/practice/streaks.md). Home shows the streak beside the practice button.
 
 - The composition binds the flow's instant with `now(instant)` and converts it with the registered `easternWeek` computation (`src/practice/week.ts`), which uses the America/New_York calendar date, so weeks stay aligned across daylight saving changes. A computation must be declared in a `computations` fence in a registered design document, or `generate` fails with `MISSING_COVERAGE`.
 - A reaction on `TimeLapsing.complete` calls `engage`. Nothing in the sync engine runs on a timer, so `/streaks/current` calls `expire` for the current week and responds with the count it returns.
@@ -21,6 +21,7 @@ The concept from Amina's spec is implemented and tested on its own (`src/concept
 
 - Each practice is one document holding its distinct fundamentals. That array realizes the spec's Exercises set, so recording a practice is one atomic insert.
 - Still open: no reaction calls `record`, and no endpoint reads `_coverage`. Recording needs submissions to name their reference image and ReferencePhotoBinning to supply its fundamentals. Reading needs the list of fundamentals to report, which should also come from ReferencePhotoBinning. A temporary hard-coded list would be a team decision.
+- Home shows a Fundamentals card beside the streak (`web/components/CoverageCard.vue`). Until a coverage endpoint exists, it shows **sample data** from `web/composables/useCoverage.ts`, with a visible "Sample data" badge. Its fundamentals list is the one named in the F3 problem framing. Before release, remove `SAMPLE` and have `load` call the coverage endpoint.
 
 ## 2026-11-22 — Sharing, following, and CoverageTracking design (Amina)
 

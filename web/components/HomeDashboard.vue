@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { api } from "../client.ts";
 import CommunityFeed from "./CommunityFeed.vue";
+import CoverageCard from "./CoverageCard.vue";
 
 defineProps<{ username: string }>();
 const emit = defineEmits<{ practice: []; timelapses: []; artists: [] }>();
@@ -34,13 +35,16 @@ onBeforeUnmount(() => { disposed = true; });
         <p class="greeting">Welcome back, {{ username }}.</p>
         <button class="practice" @click="emit('practice')">Start Daily Practice</button>
       </div>
-      <div class="streak" aria-labelledby="streak-title" role="group">
-        <p id="streak-title" class="label">Weekly streak</p>
-        <p v-if="streakError" class="error" role="alert">{{ streakError }} <button class="retry" @click="loadStreak">Retry</button></p>
-        <template v-else>
-          <p class="count" aria-live="polite"><strong>{{ streak ?? "–" }}</strong> {{ streak === 1 ? "week" : "weeks" }}</p>
-          <p class="hint">{{ streak === 0 ? "Submit a drawing this week to start one." : "Submit a drawing each week, Monday to Sunday, to keep it going." }}</p>
-        </template>
+      <div class="side">
+        <div class="streak" aria-labelledby="streak-title" role="group">
+          <p id="streak-title" class="label">Weekly streak</p>
+          <p v-if="streakError" class="error" role="alert">{{ streakError }} <button class="retry" @click="loadStreak">Retry</button></p>
+          <template v-else>
+            <p class="count" aria-live="polite"><strong>{{ streak ?? "–" }}</strong> {{ streak === 1 ? "week" : "weeks" }}</p>
+            <p class="hint">{{ streak === 0 ? "Submit a drawing this week to start one." : "Submit a drawing each week, Monday to Sunday, to keep it going." }}</p>
+          </template>
+        </div>
+        <CoverageCard />
       </div>
     </section>
 
@@ -61,7 +65,8 @@ button { font: inherit; cursor: pointer; border: 1px solid #d5dcc7; border-radiu
 button:focus-visible { outline: 2px solid #567b8a; outline-offset: 3px; }
 .practice { background: #465a3d; color: white; border-color: #465a3d; font-size: 20px; padding: 20px 40px; min-height: 64px; border-radius: 14px; box-shadow: 0 8px 24px rgba(70, 90, 61, 0.22); }
 .practice:hover { background: #3c4e34; }
-.streak { min-width: 220px; padding: 24px 28px; background: white; border: 1px solid #dfe2d8; border-radius: 16px; display: grid; gap: 6px; text-align: center; }
+.side { width: 300px; display: grid; gap: 16px; }
+.streak { padding: 24px 28px; background: white; border: 1px solid #dfe2d8; border-radius: 16px; display: grid; gap: 6px; text-align: center; }
 .label { margin: 0; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #70776e; }
 .count { margin: 0; font-size: 16px; color: #57605a; }
 .count strong { display: block; font-family: Georgia, serif; font-size: 64px; font-weight: 400; line-height: 1.1; color: #465a3d; }
@@ -74,6 +79,7 @@ button:focus-visible { outline: 2px solid #567b8a; outline-offset: 3px; }
   .greeting { font-size: 28px; }
   .practice { width: 100%; }
   .practice-block { justify-items: stretch; }
+  .side { width: 100%; }
   .below { padding: 24px 16px 48px; }
 }
 </style>
