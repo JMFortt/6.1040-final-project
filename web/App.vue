@@ -6,21 +6,37 @@ import CommonsCallback from "./components/CommonsCallback.vue";
 import CommunityPage from "./components/CommunityPage.vue";
 import DrawingWorkspace from "./components/DrawingWorkspace.vue";
 import HomeDashboard from "./components/HomeDashboard.vue";
+import ReferenceBank from "./components/ReferenceBank.vue";
 import PasswordForm from "./components/PasswordForm.vue";
 import TimelapseGallery from "./components/TimelapseGallery.vue";
 import WelcomeDialog from "./components/WelcomeDialog.vue";
+import { api } from "./client.ts";
 import { useSession } from "./composables/useSession.ts";
 
 const { me, checked, load, signOut } = useSession();
 const returningFromCommons = ref(window.location.pathname === "/auth/commons/callback");
 const screen = ref<Page>("home");
+/** Shown to a curator, and to everyone while the bank still has no curator. */
+const references = ref(false);
 const welcomeOpen = ref(false);
 /** True while the canvas still has work that leaving would drop. */
 const drawBusy = ref(false);
 
+async function refreshReferences() {
+  if (!me.value) {
+    references.value = false;
+    return;
+  }
+  const result = await api.references.access();
+  references.value = !("error" in result) && (result.curator || result.vacant);
+  if (!references.value && screen.value === "references") screen.value = "home";
+}
+
 onMounted(() => {
   if (!returningFromCommons.value) void load();
 });
+
+watch(me, () => { void refreshReferences(); });
 
 function finishedCommons() {
   returningFromCommons.value = false;
@@ -56,10 +72,11 @@ function closeWelcome() {
 <template>
   <template v-if="me && !returningFromCommons">
     <div class="app" :class="{ draw: screen === 'draw' }">
-      <AppNav :current="screen" :username="me.username" :locked="drawBusy" @navigate="screen = $event" @practice="screen = 'draw'" @help="welcomeOpen = true" @sign-out="leave" />
+      <AppNav :current="screen" :username="me.username" :locked="drawBusy" :references="references" @navigate="screen = $event" @practice="screen = 'draw'" @help="welcomeOpen = true" @sign-out="leave" />
       <DrawingWorkspace v-if="screen === 'draw'" :key="me.username" @timelapses="screen = 'timelapses'" @busy="drawBusy = $event" />
       <HomeDashboard v-else-if="screen === 'home'" :key="me.username" :username="me.username" @practice="screen = 'draw'" @timelapses="screen = 'timelapses'" @artists="screen = 'community'" />
       <TimelapseGallery v-else-if="screen === 'timelapses'" :key="me.username" :username="me.username" @practice="screen = 'draw'" />
+      <ReferenceBank v-else-if="screen === 'references'" :key="me.username" :username="me.username" @claimed="refreshReferences" @denied="refreshReferences" />
       <CommunityPage v-else :key="me.username" />
     </div>
     <WelcomeDialog :open="welcomeOpen" @close="closeWelcome" @practice="screen = 'draw'" />

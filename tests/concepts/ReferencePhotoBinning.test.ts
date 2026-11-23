@@ -66,6 +66,18 @@ describe("ReferencePhotoBinning", () => {
     expect(await bank.request({ day: 1, fundamental: "color" })).toEqual(color);
   });
 
+  test("provides the curated photos without a curator and lists the bank in key order", async () => {
+    const added = await bank.provide({ ...street });
+    expect(await bank.provide({ key: street.key, source: `  ${street.source}  `, credit: street.credit, tags: ["perspective"] })).toEqual(added);
+    expect(await bank._vacant()).toEqual({ vacant: true });
+    expect(await bank._curator({ admin: "ada" })).toEqual({ curator: false });
+    const harborImage = await bank.provide({ ...harbor });
+    const catalog = await bank._catalog();
+    expect(catalog.images.map((image) => image.image)).toEqual([harborImage.image, added.image]);
+    expect(catalog.images.map((image) => image.source)).toEqual([harbor.source, street.source]);
+    await expect(bank.provide({ ...street, credit: "someone else" })).rejects.toBeInstanceOf(ImageKeyReused);
+  });
+
   test("retries the same photo and refuses a reused key or source", async () => {
     await bank.appoint({ admin: "ada", curator: "ada" });
     const added = await bank.add({ admin: "ada", ...street });

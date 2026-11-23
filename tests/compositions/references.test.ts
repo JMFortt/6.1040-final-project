@@ -54,6 +54,26 @@ describe("Reference bank", () => {
     expect(await ben.references.request({ fundamental: "perspective" })).toMatchObject({ found: true, image: tomorrow.image });
   });
 
+  test("only a curator can read the whole bank", async () => {
+    const { browser } = createApp(database.db);
+    const ada = browser();
+    const maya = browser();
+    await ada.auth.register({ username: "ada", password: "ada-password-1" });
+    await maya.auth.register({ username: "maya", password: "maya-password-1" });
+    expect(await maya.references.access()).toEqual({ curator: false, vacant: true });
+    expect(await maya.references.catalog()).toEqual({ error: "FORBIDDEN" });
+    expect(await ada.references.appoint({ username: "ada" })).toEqual({});
+    expect(await ada.references.access()).toEqual({ curator: true, vacant: false });
+    expect(await maya.references.access()).toEqual({ curator: false, vacant: false });
+    expect(await ada.references.catalog()).toEqual({ images: [] });
+    const street = await ada.references.add({ key: "street", source: "https://example.test/street.jpg", credit: "Ada Lovelace", tags: ["perspective"] });
+    if ("error" in street) throw new Error(street.error);
+    expect(await ada.references.catalog()).toEqual({
+      images: [{ image: street.image, source: "https://example.test/street.jpg", credit: "Ada Lovelace", tags: ["perspective"] }],
+    });
+    expect(await maya.references.catalog()).toEqual({ error: "FORBIDDEN" });
+  });
+
   test("rejects a request that is not one fundamental", async () => {
     const { browser } = createApp(database.db);
     const ada = browser();

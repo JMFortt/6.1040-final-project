@@ -1,7 +1,7 @@
 <script setup lang="ts">
-export type Page = "home" | "draw" | "timelapses" | "community";
+export type Page = "home" | "draw" | "timelapses" | "community" | "references";
 
-defineProps<{ current: Page; username: string; locked?: boolean }>();
+defineProps<{ current: Page; username: string; locked?: boolean; references?: boolean }>();
 const emit = defineEmits<{ navigate: [page: Page]; practice: []; help: []; signOut: [] }>();
 
 const pages: { id: Page; label: string }[] = [
@@ -25,6 +25,7 @@ const leaveTitle = "Finish saving this artwork before leaving.";
     </nav>
     <div class="actions">
       <button class="practice" @click="emit('practice')">Start Daily Practice</button>
+      <button v-if="references" class="quiet" :class="{ current: current === 'references' }" :disabled="locked" :title="locked ? leaveTitle : undefined" :aria-current="current === 'references' ? 'page' : undefined" @click="emit('navigate', 'references')">References</button>
       <button class="quiet" @click="emit('help')">Help</button>
       <span class="me" :title="`Signed in as ${username}`">{{ username }}</span>
       <button class="quiet" :disabled="locked" :title="locked ? leaveTitle : undefined" @click="emit('signOut')">Sign out</button>
@@ -46,7 +47,8 @@ ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
 .actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .practice { background: #465a3d; color: white; border-color: #465a3d; }
 .quiet { background: none; border-color: transparent; color: #57605a; }
-.quiet:hover { border-color: #d5dcc7; }
+.quiet:hover, .quiet.current { border-color: #d5dcc7; }
+.quiet.current { font-weight: 600; color: #27372d; }
 .me { font-size: 13px; padding: 0 4px; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 760px) {
   .nav { padding: 10px 16px; gap: 6px 12px; }

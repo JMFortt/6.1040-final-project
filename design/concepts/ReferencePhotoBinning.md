@@ -19,6 +19,8 @@ external Fundamental
   A drawing fundamental a photo exercises, such as perspective or lighting.
 opaque Set
   An unordered collection of distinct values of its type argument.
+opaque Catalog
+  Every photo in the bank, ordered by key. Each photo carries its id, source, credit, and tags.
 ```
 
 ## State
@@ -98,6 +100,25 @@ add(admin: Admin, key: String, source: String, credit: String, tags: Set<Fundame
     add it with a new id and the given tags
     returns image
 
+provide(key: String, source: String, credit: String, tags: Set<Fundamental>) : returns (image: String)
+  where key, source, credit, or tags is not well formed
+  then
+    refuses INVALID_IMAGE "The image needs a key, a source, a credit, and one to eight tags."
+  where key identifies an image with a different source, credit, or tags
+  then
+    refuses IMAGE_KEY_REUSED "This image identifier has already been used."
+  where key identifies an image with the same source, credit, and tags
+  then
+    leave the state unchanged
+    returns image
+  where source identifies a different image
+  then
+    refuses SOURCE_REUSED "This reference is already in the bank."
+  where the image is new
+  then
+    add it with a new id and the given tags
+    returns image
+
 remove(admin: Admin, image: String) : returns ()
   where admin is not a curator
   then
@@ -143,4 +164,12 @@ request(day: Number, fundamental: Fundamental) : returns (found: Flag, image: St
 ## Queries
 
 ```queries
+_catalog() : one (images: Catalog)
+  Returns every photo in the bank, ordered by key. Each photo carries its id, source, credit, and tags. An empty bank returns no photos.
+
+_curator(admin: Admin) : one (curator: Flag)
+  Returns whether admin is a curator.
+
+_vacant() : one (vacant: Flag)
+  Returns whether the bank has no curator yet.
 ```

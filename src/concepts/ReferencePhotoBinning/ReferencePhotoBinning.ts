@@ -136,6 +136,15 @@ export class ReferencePhotoBinningConcept<Admin extends string, Fundamental exte
 
   async add({ admin, key, source, credit, tags }: { admin: Admin; key: string; source: string; credit: string; tags: readonly Fundamental[] }) {
     if (!await this.#curator(admin)) throw new NotCurator("Only a curator can change the reference bank.");
+    return this.#place(key, source, credit, tags);
+  }
+
+  /** Adds one photo without a curator. Startup uses it for the curated bank, and it is not an endpoint. */
+  async provide({ key, source, credit, tags }: { key: string; source: string; credit: string; tags: readonly Fundamental[] }) {
+    return this.#place(key, source, credit, tags);
+  }
+
+  async #place(key: string, source: string, credit: string, tags: readonly Fundamental[]) {
     const formedKey = keyOf(key);
     const formedSource = text(source, MAX_SOURCE);
     const formedCredit = text(credit, MAX_CREDIT);
@@ -185,6 +194,25 @@ export class ReferencePhotoBinningConcept<Admin extends string, Fundamental exte
     const updated = await this.images.updateOne({ id: image }, { $set: { tags: formed } });
     if (updated.matchedCount === 0) throw new ImageNotFound("That reference is not in the bank.");
     return {};
+  }
+
+  async _catalog() {
+    await this.#ready();
+    const images = await this.images.find().toArray();
+    return {
+      images: images
+        .map(({ id, source, credit, tags, key }) => ({ image: id, source, credit, tags, key }))
+        .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+        .map(({ image, source, credit, tags }) => ({ image, source, credit, tags })),
+    };
+  }
+
+  async _curator({ admin }: { admin: Admin }) {
+    return { curator: await this.#curator(admin) };
+  }
+
+  async _vacant() {
+    return { vacant: await this.curators.countDocuments() === 0 };
   }
 
   async request({ day, fundamental }: { day: number; fundamental: Fundamental }) {

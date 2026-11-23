@@ -351,6 +351,16 @@ export type RedrawWire = {
     output: Record<string, never>;
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_LIKED" | "NOT_SIGNED_IN" };
   };
+  "/references/access": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "curator": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["_curator"]>>>, ["curator"]>>;
+      "vacant": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["_vacant"]>>>, ["vacant"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
   "/references/add": {
     input: {
       "credit": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>[0], ["credit"]>>;
@@ -371,6 +381,15 @@ export type RedrawWire = {
     };
     output: Record<string, never>;
     error: { error: AppWideError | "ALREADY_CURATOR" | "FIRST_CURATOR" | "INVALID_INPUT" | "NOT_CURATOR" | "NOT_SIGNED_IN" | "USER_NOT_FOUND" };
+  };
+  "/references/catalog": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "images": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["_catalog"]>>>, ["images"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_CURATOR" | "NOT_SIGNED_IN" };
   };
   "/references/remove": {
     input: {
@@ -712,6 +731,14 @@ export type RedrawWireHttp = {
     output: Record<string, never>;
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
   };
+  "/references/access": {
+    input: Record<string, never>;
+    output: {
+      "curator": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["_curator"]>>>, ["curator"]>>;
+      "vacant": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["_vacant"]>>>, ["vacant"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
   "/references/add": {
     input: {
       "credit": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>[0], ["credit"]>>;
@@ -730,6 +757,13 @@ export type RedrawWireHttp = {
     };
     output: Record<string, never>;
     error: { error: HttpAppWideError | "CONFLICT" | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/references/catalog": {
+    input: Record<string, never>;
+    output: {
+      "images": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["_catalog"]>>>, ["images"]>>;
+    };
+    error: { error: HttpAppWideError | "FORBIDDEN" | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
   "/references/remove": {
     input: {

@@ -5,8 +5,11 @@ import { assembleApplication } from "./assembly.ts";
 import { CommonsProvider } from "./concepts/Federating/provider.ts";
 import { db } from "./db.ts";
 import { redrawPolicy } from "./http.ts";
+import { stockReferenceBank } from "./practice/stock.ts";
 
 const publicOrigin = process.env.PUBLIC_ORIGIN ?? "http://127.0.0.1:8080";
+const stocked = await stockReferenceBank(db);
+if (stocked > 0) console.log(`Stocked ${stocked} reference photos.`);
 const application = assembleApplication({
   database: db,
   commons: new CommonsProvider({

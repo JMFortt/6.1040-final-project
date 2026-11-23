@@ -26,9 +26,17 @@ practice.references.Remove at /references/remove
 practice.references.Tag at /references/tag
 ```
 
+[Access](reaction:practice.references.Access) tells a signed-in user whether they are a curator and whether the bank still has no curator. The reference page is shown only to a curator, or to anyone while no curator exists, so the first one can appoint themself.
+
+[Catalog](reaction:practice.references.Catalog) is open to a curator. It reads the whole bank and does not assign a photo for the day. Anyone else receives `NOT_CURATOR`.
+
+When the server starts, it calls `provide` for each curated photo this database has not already been introduced to. `provide` is not an endpoint. A photo a curator later edits or removes stays as the curator left it. The curated files are served from the site, and each credit is the author and license named on its Wikimedia Commons page.
+
 [Requesting](reaction:practice.references.Request) is open to every signed-in user, and the user is not an argument, so two artists cannot receive different photos. The body names one fundamental. The response is that day's photo, or `found: false` when none is tagged with it. A photo already assigned to another fundamental today is skipped, unless it is the only one tagged with the requested fundamental. Among the photos that remain, the one used least recently is chosen, and a tie is broken at random. The same choice is stored for the rest of the day.
 
 ```endpoints
+practice.references.Access at /references/access
+practice.references.Catalog at /references/catalog
 practice.references.Request at /references/request
 ```
 

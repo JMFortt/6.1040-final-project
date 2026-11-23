@@ -32,6 +32,8 @@ const tagInput: EndpointValidator = (value) => isObject(value) && session(value.
   ? { ok: true } : { ok: false, detail: "Expected a reference image and one to eight tags." };
 const requestInput: EndpointValidator = (value) => isObject(value) && session(value.session) && text(value.fundamental, 40) && only(value, ["session", "fundamental"])
   ? { ok: true } : { ok: false, detail: "Expected one fundamental." };
+const sessionInput: EndpointValidator = (value) => isObject(value) && session(value.session) && only(value, ["session"])
+  ? { ok: true } : { ok: false, detail: "Expected only a session." };
 
 const Appoint = endpoint("/references/appoint", ({ session, admin, username, curator }) => receive({ session, username })
   .then(Sessioning.use({ session }).responds({ subject: admin }))
@@ -64,6 +66,24 @@ const Tag = endpoint("/references/tag", ({ session, admin, image, tags }) => rec
   .then(respond({})),
 { validators: { input: tagInput } });
 
+const Access = endpoint("/references/access", ({ session, admin, curator, vacant }) => receive({ session })
+  .then(Sessioning.use({ session }).responds({ subject: admin }))
+  .then(where(ReferencePhotoBinning._curator({ admin }).is({ curator }), ReferencePhotoBinning._vacant({}).is({ vacant }))
+    .then(respond({ curator, vacant }))),
+{ validators: { input: sessionInput } });
+
+const Catalog = endpoint("/references/catalog", ({ session, admin, images }) => receive({ session })
+  .then(Sessioning.use({ session }).responds({ subject: admin }))
+  .then(
+    where(ReferencePhotoBinning._curator({ admin }).is({ curator: true }), ReferencePhotoBinning._catalog({}).is({ images }))
+      .then(respond({ images }))
+      .named("curator"),
+    where(ReferencePhotoBinning._curator({ admin }).is({ curator: false }))
+      .then(respond({ error: "NOT_CURATOR" }))
+      .named("visitor"),
+  ),
+{ validators: { input: sessionInput } });
+
 const Request = endpoint("/references/request", ({ session, instant, day, fundamental, found, image, source, credit }) => receive({ session, fundamental })
   .then(Sessioning.use({ session }).responds({}))
   .then(where(now(instant), compute(computations.easternDay, { instant }, day))
@@ -85,4 +105,4 @@ export const referencesHttp = {
   },
 } as const;
 
-export const composition = { Appoint, Add, Remove, Tag, Request };
+export const composition = { Appoint, Add, Remove, Tag, Access, Catalog, Request };

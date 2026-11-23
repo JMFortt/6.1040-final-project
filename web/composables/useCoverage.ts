@@ -3,10 +3,10 @@ import { computed, ref } from "vue";
 export interface CoverageRow { fundamental: string; count: number }
 
 /**
- * The fundamentals named in the F3 problem framing. A stand-in until ReferencePhotoBinning
+ * The fundamentals shown in the app. A stand-in until ReferencePhotoBinning
  * supplies its tags; the coverage endpoint will then report on that list instead.
  */
-export const FUNDAMENTALS = ["perspective", "proportions", "anatomy", "lighting", "color", "composition"] as const;
+export const FUNDAMENTALS = ["perspective", "anatomy", "lighting", "color", "form"] as const;
 
 /**
  * SAMPLE DATA, shown with a visible "Sample data" badge so the layout can be judged.
@@ -15,11 +15,10 @@ export const FUNDAMENTALS = ["perspective", "proportions", "anatomy", "lighting"
  */
 const SAMPLE: CoverageRow[] = [
   { fundamental: "perspective", count: 2 },
-  { fundamental: "proportions", count: 1 },
   { fundamental: "anatomy", count: 0 },
   { fundamental: "lighting", count: 4 },
   { fundamental: "color", count: 3 },
-  { fundamental: "composition", count: 1 },
+  { fundamental: "form", count: 1 },
 ];
 
 /** Least practiced first, then by name: the order CoverageTracking._coverage returns. */
