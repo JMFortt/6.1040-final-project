@@ -2,6 +2,20 @@
 
 Unresolved on purpose. Add a dated note when the team decides. Do not edit `deliverables/` to close one of these unless a teammate asks.
 
+## 2026-11-23 — StreakTracking design (Julia)
+
+Julia chose a **weekly** streak, with weeks running Monday 00:00 to Sunday 24:00 America/New_York. [`StreakTracking`](../design/concepts/StreakTracking.md) stays close to the F3 deliverable. The caller passes a period number, so the concept stays general, and the composition computes the Eastern Time week. Spec only: not yet instantiated in `design/types.md` or implemented.
+
+- The composition converts the current time to a week number using the America/New_York time zone, not a fixed offset, so weeks stay aligned across daylight saving changes.
+- Submitting a drawing calls `engage`. Nothing in the sync engine runs on a timer, so an endpoint that shows the streak calls `expire` for the current week before `_getStreak`.
+- Differences from the F3 deliverable, which stays unchanged:
+  - Periods replace days and are passed in, so `lastActiveDay` became `lastActivePeriod`.
+  - The actions return the streak count and gain the refusals the executable format needs.
+  - `engage` sets the count to 1 after a gap, so the count is right even when `expire` was not called first.
+  - `expire` leaves a current streak unchanged instead of refusing, so it is safe to call before every read.
+  - `_getStreak` returns 0 for a user who has never engaged.
+- The checker rejects a `## Notes` section in concept specs. Record design rationale here or in the composition's design file.
+
 ## 2026-11-22 — Sharing, following, and CoverageTracking design (Amina)
 
 Decided from this handbook at Amina's request (her MVP row is posting and browsing), and open to team review. The rationale lives in the new design files: [`Posting`](../design/concepts/Posting.md), [`Following`](../design/concepts/Following.md), [`Liking`](../design/concepts/Liking.md), [`sharing/posts.md`](../design/compositions/sharing/posts.md), [`sharing/people.md`](../design/compositions/sharing/people.md).
