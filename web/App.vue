@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
+import AppNav, { type Page } from "./components/AppNav.vue";
 import CommonsButton from "./components/CommonsButton.vue";
 import CommonsCallback from "./components/CommonsCallback.vue";
-import PasswordForm from "./components/PasswordForm.vue";
+import CommunityPage from "./components/CommunityPage.vue";
 import DrawingWorkspace from "./components/DrawingWorkspace.vue";
+import HomeDashboard from "./components/HomeDashboard.vue";
+import PasswordForm from "./components/PasswordForm.vue";
 import TimelapseGallery from "./components/TimelapseGallery.vue";
-import CommunityFeed from "./components/CommunityFeed.vue";
+import WelcomeDialog from "./components/WelcomeDialog.vue";
 import { useSession } from "./composables/useSession.ts";
 
 const { me, checked, load, signOut } = useSession();
 const returningFromCommons = ref(window.location.pathname === "/auth/commons/callback");
-const screen = ref<"home" | "canvas" | "timelapses" | "community">("home");
+/** The canvas is a full-screen studio; every other signed-in page shares the nav bar. */
+const screen = ref<Page | "canvas">("home");
+const welcomeOpen = ref(false);
 
 onMounted(() => {
   if (!returningFromCommons.value) void load();
@@ -25,23 +30,38 @@ async function leave() {
   await signOut();
   screen.value = "home";
 }
+
+// Each page starts at its top.
+watch(screen, () => window.scrollTo(0, 0));
+
+// The welcome opens once for each account on this browser, and again from Help.
+// Remembering it in browser storage is a convenience: if storage is unavailable, it simply shows again.
+const welcomedKey = (username: string) => `redraw:welcomed:${username}`;
+watch(me, (person) => {
+  welcomeOpen.value = false;
+  if (!person) return;
+  try { if (!localStorage.getItem(welcomedKey(person.username))) welcomeOpen.value = true; } catch { /* storage unavailable */ }
+}, { immediate: true });
+
+function closeWelcome() {
+  welcomeOpen.value = false;
+  if (me.value) try { localStorage.setItem(welcomedKey(me.value.username), "1"); } catch { /* storage unavailable */ }
+}
 </script>
 
 <template>
-  <DrawingWorkspace v-if="me && screen === 'canvas' && !returningFromCommons" :key="me.username" :username="me.username" @sign-out="leave" @timelapses="screen = 'timelapses'" @home="screen = 'home'" />
-  <TimelapseGallery v-else-if="me && screen === 'timelapses' && !returningFromCommons" :key="me.username" :username="me.username" @practice="screen = 'canvas'" @home="screen = 'home'" @community="screen = 'community'" />
-  <CommunityFeed v-else-if="me && screen === 'community' && !returningFromCommons" :key="me.username" :username="me.username" @practice="screen = 'canvas'" @home="screen = 'home'" @timelapses="screen = 'timelapses'" />
+  <template v-if="me && !returningFromCommons">
+    <DrawingWorkspace v-if="screen === 'canvas'" :key="me.username" :username="me.username" @sign-out="leave" @timelapses="screen = 'timelapses'" @home="screen = 'home'" />
+    <template v-else>
+      <AppNav :current="screen" :username="me.username" @navigate="screen = $event" @practice="screen = 'canvas'" @help="welcomeOpen = true" @sign-out="leave" />
+      <HomeDashboard v-if="screen === 'home'" :key="me.username" :username="me.username" @practice="screen = 'canvas'" @timelapses="screen = 'timelapses'" @artists="screen = 'community'" />
+      <TimelapseGallery v-else-if="screen === 'timelapses'" :key="me.username" :username="me.username" @practice="screen = 'canvas'" />
+      <CommunityPage v-else :key="me.username" />
+    </template>
+    <WelcomeDialog :open="welcomeOpen" @close="closeWelcome" @practice="screen = 'canvas'" />
+  </template>
   <main v-else class="page">
     <CommonsCallback v-if="returningFromCommons" @done="finishedCommons" />
-    <section v-else-if="me" class="card">
-      <p class="eyebrow">Redraw</p>
-      <h1>Signed in</h1>
-      <p>You are <strong>{{ me.username }}</strong>.</p>
-      <button type="button" class="primary" @click="screen = 'canvas'">Start Daily Practice</button>
-      <button type="button" class="primary" @click="screen = 'timelapses'">View saved timelapses</button>
-      <button type="button" class="primary" @click="screen = 'community'">Browse community</button>
-      <button type="button" class="primary" @click="leave">Sign out</button>
-    </section>
     <section v-else-if="checked" class="card">
       <p class="eyebrow">Redraw</p>
       <h1>Sign in</h1>
@@ -80,12 +100,4 @@ async function leave() {
 h1 { margin: 0; font-size: 1.6rem; }
 .lead, .or { margin: 0; color: #57534e; }
 .or { text-align: center; }
-.primary {
-  min-height: 44px;
-  border: 0;
-  border-radius: 10px;
-  background: #1c1917;
-  color: #fafaf9;
-  cursor: pointer;
-}
 </style>
