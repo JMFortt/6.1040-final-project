@@ -2,6 +2,35 @@
 
 Unresolved on purpose. Add a dated note when the team decides. Do not edit `deliverables/` to close one of these unless a teammate asks.
 
+## 2026-11-23 — StreakTracking + CoverageTracking (Julia)
+
+Julia chose a **weekly** streak, with weeks running Monday 00:00 to Sunday 24:00 America/New_York. [`StreakTracking`](../design/concepts/StreakTracking.md) stays close to the F3 deliverable. The caller passes a period number, so the concept stays general, and the composition computes the Eastern Time week. Implemented on 2026-11-23 with the [streaks composition](../design/compositions/practice/streaks.md). Home shows the streak beside the practice button.
+
+- The composition binds the flow's instant with `now(instant)` and converts it with the registered `easternWeek` computation (`src/practice/week.ts`), which uses the America/New_York calendar date, so weeks stay aligned across daylight saving changes. A computation must be declared in a `computations` fence in a registered design document, or `generate` fails with `MISSING_COVERAGE`.
+- A reaction on `TimeLapsing.complete` calls `engage`. Nothing in the sync engine runs on a timer, so `/streaks/current` calls `expire` for the current week and responds with the count it returns.
+- `assembleApplication` and the test helper `createApp` accept an optional `clock` so that tests can fix the current week.
+- Differences from the F3 deliverable, which stays unchanged:
+  - Periods replace days and are passed in, so `lastActiveDay` became `lastActivePeriod`.
+  - The actions return the streak count and gain the refusals the executable format needs.
+  - `engage` sets the count to 1 after a gap, so the count is right even when `expire` was not called first.
+  - `expire` leaves a current streak unchanged instead of refusing, so it is safe to call before every read.
+  - `_getStreak` returns 0 for a user who has never engaged.
+- The checker rejects a `## Notes` section in concept specs. Record design rationale here or in the composition's design file.
+
+The concept from Amina's spec is implemented and tested on its own (`src/concepts/CoverageTracking/`). It is instantiated with `Fundamental is FundamentalName`, a temporary concrete type for plain fundamental names. Rebind it to ReferencePhotoBinning's tag type when that concept exists.
+
+- Each practice is one document holding its distinct fundamentals. That array realizes the spec's Exercises set, so recording a practice is one atomic insert.
+- Still open: no reaction calls `record`, and no endpoint reads `_coverage`. Recording needs submissions to name their reference image and ReferencePhotoBinning to supply its fundamentals. Reading needs the list of fundamentals to report, which should also come from ReferencePhotoBinning. A temporary hard-coded list would be a team decision.
+- Home shows a Fundamentals card beside the streak (`web/components/CoverageCard.vue`). Until a coverage endpoint exists, it shows **sample data** from `web/composables/useCoverage.ts`, with a visible "Sample data" badge. Its fundamentals list is the one named in the F3 problem framing. Before release, remove `SAMPLE` and have `load` call the coverage endpoint.
+
+## 2026-11-22 — Sharing, following, and CoverageTracking design (Amina)
+
+Decided from this handbook at Amina's request (her MVP row is posting and browsing), and open to team review. The rationale lives in the new design files: [`Posting`](../design/concepts/Posting.md), [`Following`](../design/concepts/Following.md), [`Liking`](../design/concepts/Liking.md), [`sharing/posts.md`](../design/compositions/sharing/posts.md), [`sharing/people.md`](../design/compositions/sharing/people.md).
+
+- A post shares a completed timelapse until reference images are connected. Comments and reporting are deferred, because the ethics analysis ties them to moderation.
+- `scripts/seed.ts` (`bun scripts/seed.ts`) adds five development artists with password `redraw-seed-123`. Never seed a deployed database.
+- [`CoverageTracking`](../design/concepts/CoverageTracking.md) is a spec only, since Julia implements it at MVP. It keeps counts per artist and receives tags from a reaction, so it never reads ReferencePhotoBinning. That reaction needs submissions to record their reference image, which they do not yet.
+
 ## 2026-11-22 — numbered timelapse submissions
 
 The team requested a Submit button that preserves strokes as a numbered timelapse, plus a private page after login listing saved timelapses in order. The index temporarily identifies a submission until reference images are connected. Playback belongs to TimeLapsing's existing purpose. The team clarified that **submission clears the working canvas**. Preserve completed histories immutably, number them per owner starting at 1, and begin a blank working history only after successful submission. A submission marker in the same ordered event log makes preservation and the new history boundary one atomic write. Existing unsubmitted strokes remain the first working history. Browser playback is included; video file export remains deferred.

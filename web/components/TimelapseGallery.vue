@@ -3,9 +3,10 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 import { parseStroke, type Stroke } from "../../src/drawing/stroke.ts";
 import { api } from "../client.ts";
 import TimelapsePlayer from "./TimelapsePlayer.vue";
+import ShareToggle from "./ShareToggle.vue";
 
 defineProps<{ username: string }>();
-const emit = defineEmits<{ practice: []; home: [] }>();
+const emit = defineEmits<{ practice: [] }>();
 const recordings = ref<{ index: number; count: number; createdAt: number }[]>([]);
 const loading = ref(false);
 const more = ref(true);
@@ -66,7 +67,6 @@ onBeforeUnmount(() => { disposed = true; request++; });
 
 <template>
   <main class="gallery">
-    <header><button class="home" @click="emit('home')">redraw<span>/</span></button><span>{{ username }}</span><button class="practice" @click="emit('practice')">Start Daily Practice</button></header>
     <div class="content">
       <p class="eyebrow">YOUR PRACTICE ARCHIVE</p>
       <h1>Saved timelapses</h1>
@@ -83,6 +83,7 @@ onBeforeUnmount(() => { disposed = true; request++; });
         </nav>
         <section class="preview" aria-label="Selected timelapse">
           <h2 v-if="selected">Timelapse #{{ selected }}</h2>
+          <ShareToggle v-if="selected" :key="selected" :index="selected" />
           <p v-if="opening" role="status">Loading strokes…</p>
           <p v-else-if="playbackError" class="error" role="alert">{{ playbackError }} <button @click="open(selected!)">Retry</button></p>
           <TimelapsePlayer v-else-if="selected && strokes.length" :key="selected" :strokes="strokes" :index="selected" />
@@ -94,13 +95,9 @@ onBeforeUnmount(() => { disposed = true; request++; });
 </template>
 
 <style scoped>
-.gallery { min-height: 100dvh; background: #f3f5ee; color: #27372d; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; }
-header { min-height: 78px; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 16px 28px; border-bottom: 1px solid #dfe2d8; background: #fcfcf8; }
-header > span { margin-left: auto; font-size: 13px; }
+.gallery { min-height: calc(100dvh - 65px); background: #f3f5ee; color: #27372d; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; }
 button { font: inherit; cursor: pointer; border: 1px solid #d5dcc7; border-radius: 8px; background: white; color: inherit; padding: 10px 14px; min-height: 44px; }
 button:focus-visible { outline: 2px solid #567b8a; outline-offset: 3px; }
-.home { font-size: 25px; font-weight: 700; letter-spacing: -1px; background: none; border: 0; padding: 0; }
-.home span { color: #929a77; }
 .practice { background: #465a3d; color: white; border-color: #465a3d; font-size: 13px; }
 .content { max-width: 1240px; margin: auto; padding: 40px 28px; }
 .eyebrow { font-size: 10px; letter-spacing: 2px; color: #70776e; }
@@ -117,5 +114,5 @@ ol { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 12px; }
 .preview { min-width: 0; }
 .empty { margin-top: 32px; padding: 36px; border: 1px dashed #bdc6b2; border-radius: 12px; }
 .error { color: #88492d; }
-@media (max-width: 760px) { header { padding: 16px; gap: 12px; } .content { padding: 24px 20px; } .archive { grid-template-columns: 1fr; gap: 24px; } ol { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } .empty { padding: 24px; } }
+@media (max-width: 760px) { .content { padding: 24px 20px; } .archive { grid-template-columns: 1fr; gap: 24px; } ol { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } .empty { padding: 24px; } }
 </style>

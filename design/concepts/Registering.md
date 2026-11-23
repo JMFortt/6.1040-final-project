@@ -46,4 +46,7 @@ _byUsername(username: String) : optional (user: User)
 
 _username(user: User) : optional (username: String)
   Returns the user's username, or no row for an unknown user.
+
+_search(prefix: String) : many (user: User, username: String)
+  Returns up to 10 users whose username starts with prefix, ignoring letter case, in alphabetical order. Returns no rows for an empty prefix or when nobody matches.
 ```

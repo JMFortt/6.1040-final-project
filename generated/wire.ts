@@ -5,6 +5,7 @@ import type { applicationConceptSet as ApplicationConceptSet } from "../src/conc
 
 type AtPath<T, P extends readonly string[]> = P extends readonly [infer H extends string, ...infer R extends string[]] ? H extends keyof T ? AtPath<T[H], R> : H extends `${number}` ? T extends readonly (infer Item)[] ? AtPath<Item, R> : never : never : T;
 type QueryRow<T> = T extends readonly (infer Row)[] ? Row : T;
+type AllOf<T extends readonly unknown[]> = T extends readonly [infer Head, ...infer Rest] ? Head & AllOf<Rest> : unknown;
 type OneOf<T extends readonly unknown[]> = T[number];
 type Jsonify<T> = T extends Date ? string : T extends null | boolean | number | string ? T : T extends (...args: never[]) => unknown ? never : T extends readonly (infer Item)[] ? Jsonify<Item>[] : T extends object ? { [K in keyof T]: Jsonify<T[K]> } : never;
 
@@ -125,7 +126,7 @@ export type RedrawWire = {
       "index": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["index"]>>;
       "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["sequence"]>>;
     };
-    error: { error: AppWideError | "EMPTY_HISTORY" | "INVALID_COMPLETION" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "STALE_HISTORY" | "UPDATE_KEY_REUSED" };
+    error: { error: AppWideError | "EMPTY_HISTORY" | "INVALID_COMPLETION" | "INVALID_INPUT" | "INVALID_PERIOD" | "NOT_SIGNED_IN" | "STALE_HISTORY" | "STALE_PERIOD" | "UPDATE_KEY_REUSED" };
   };
   "/canvas/timelapse": {
     input: {
@@ -148,6 +149,160 @@ export type RedrawWire = {
       "recordings": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recordings"]>>>, ["recordings"]>>;
     };
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/people/follow": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Registering"]["_byUsername"]>[0], ["username"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: AppWideError | "ALREADY_FOLLOWING" | "CANNOT_FOLLOW_SELF" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "USER_NOT_FOUND" };
+  };
+  "/people/following": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "following": {
+        "people": {
+          "since": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Following"]["_following"]>>>, ["since"]>>;
+          "username": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/people/search": {
+    input: {
+      "prefix": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Registering"]["_search"]>[0], ["prefix"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "results": {
+        "people": {
+          "followers": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Following"]["_followerCount"]>>>, ["count"]>>;
+          "following": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Following"]["_isFollowing"]>>>, ["following"]>>;
+          "username": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_search"]>>>, ["username"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/people/suggestions": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "suggestions": {
+        "people": {
+          "followers": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Following"]["_followerCount"]>>>, ["count"]>>;
+          "latest": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_authors"]>>>, ["latest"]>>;
+          "posts": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_authors"]>>>, ["posts"]>>;
+          "username": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/people/unfollow": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Registering"]["_byUsername"]>[0], ["username"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOLLOWING" | "NOT_SIGNED_IN" | "USER_NOT_FOUND" };
+  };
+  "/posts/feed": {
+    input: {
+      "before": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["_feed"]>[0], ["before"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "page": {
+        "posts": ({
+          "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_feed"]>>>, ["createdAt"]>>;
+          "following": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Following"]["_isFollowing"]>>>, ["following"]>>;
+          "index": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_feed"]>>>, ["work"]>>;
+          "liked": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Liking"]["_likes"]>>>, ["liked"]>>;
+          "likes": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Liking"]["_count"]>>>, ["count"]>>;
+          "post": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Liking"]["_count"]>[0], ["item"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Liking"]["_likes"]>[0], ["item"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_feed"]>>>, ["post"]>]>>;
+          "username": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>> | null;
+        })[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/posts/like": {
+    input: {
+      "post": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Liking"]["like"]>[0], ["item"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["_get"]>[0], ["post"]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: AppWideError | "ALREADY_LIKED" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "POST_NOT_FOUND" };
+  };
+  "/posts/publish": {
+    input: {
+      "index": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>[0], ["index"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["publish"]>[0], ["work"]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "post": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["publish"]>>, ["post"]>>;
+    };
+    error: { error: AppWideError | "ALREADY_PUBLISHED" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "TIMELAPSE_NOT_FOUND" };
+  };
+  "/posts/retract": {
+    input: {
+      "post": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["retract"]>[0], ["post"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "post": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["retract"]>>, ["post"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" | "POST_NOT_FOUND" };
+  };
+  "/posts/status": {
+    input: {
+      "index": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["_publishedAs"]>[0], ["work"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "post": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_publishedAs"]>>>, ["post"]>> | null;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/posts/timelapse": {
+    input: {
+      "after": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>[0], ["after"]>>;
+      "post": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["_get"]>[0], ["post"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_get"]>>>, ["createdAt"]>>;
+      "found": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>>>, ["found"]>>;
+      "updates": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>>>, ["updates"]>>;
+    } | {
+      "createdAt": 0;
+      "found": false;
+      "updates": never[];
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/posts/unlike": {
+    input: {
+      "post": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Liking"]["unlike"]>[0], ["item"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_LIKED" | "NOT_SIGNED_IN" };
+  };
+  "/streaks/current": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "streakCount": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["StreakTracking"]["expire"]>>, ["streakCount"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_PERIOD" | "NOT_SIGNED_IN" };
   };
 };
 
@@ -245,7 +400,7 @@ export type RedrawWireHttp = {
       "index": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["index"]>>;
       "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["sequence"]>>;
     };
-    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "UNAUTHORIZED" };
+    error: { error: HttpAppWideError | "CONFLICT" | "INTERNAL_ERROR" | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
   "/canvas/timelapse": {
     input: {
@@ -266,5 +421,143 @@ export type RedrawWireHttp = {
       "recordings": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recordings"]>>>, ["recordings"]>>;
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/people/follow": {
+    input: {
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Registering"]["_byUsername"]>[0], ["username"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/people/following": {
+    input: Record<string, never>;
+    output: {
+      "following": {
+        "people": {
+          "since": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Following"]["_following"]>>>, ["since"]>>;
+          "username": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>>;
+        }[];
+      };
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/people/search": {
+    input: {
+      "prefix": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Registering"]["_search"]>[0], ["prefix"]>>;
+    };
+    output: {
+      "results": {
+        "people": {
+          "followers": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Following"]["_followerCount"]>>>, ["count"]>>;
+          "following": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Following"]["_isFollowing"]>>>, ["following"]>>;
+          "username": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_search"]>>>, ["username"]>>;
+        }[];
+      };
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/people/suggestions": {
+    input: Record<string, never>;
+    output: {
+      "suggestions": {
+        "people": {
+          "followers": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Following"]["_followerCount"]>>>, ["count"]>>;
+          "latest": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_authors"]>>>, ["latest"]>>;
+          "posts": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_authors"]>>>, ["posts"]>>;
+          "username": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>>;
+        }[];
+      };
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/people/unfollow": {
+    input: {
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Registering"]["_byUsername"]>[0], ["username"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/posts/feed": {
+    input: {
+      "before": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["_feed"]>[0], ["before"]>>;
+    };
+    output: {
+      "page": {
+        "posts": ({
+          "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_feed"]>>>, ["createdAt"]>>;
+          "following": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Following"]["_isFollowing"]>>>, ["following"]>>;
+          "index": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_feed"]>>>, ["work"]>>;
+          "liked": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Liking"]["_likes"]>>>, ["liked"]>>;
+          "likes": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Liking"]["_count"]>>>, ["count"]>>;
+          "post": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Liking"]["_count"]>[0], ["item"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Liking"]["_likes"]>[0], ["item"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_feed"]>>>, ["post"]>]>>;
+          "username": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>> | null;
+        })[];
+      };
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/posts/like": {
+    input: {
+      "post": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Liking"]["like"]>[0], ["item"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["_get"]>[0], ["post"]>]>>;
+    };
+    output: Record<string, never>;
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/posts/publish": {
+    input: {
+      "index": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>[0], ["index"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["publish"]>[0], ["work"]>]>>;
+    };
+    output: {
+      "post": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["publish"]>>, ["post"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/posts/retract": {
+    input: {
+      "post": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["retract"]>[0], ["post"]>>;
+    };
+    output: {
+      "post": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["retract"]>>, ["post"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/posts/status": {
+    input: {
+      "index": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["_publishedAs"]>[0], ["work"]>>;
+    };
+    output: {
+      "post": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_publishedAs"]>>>, ["post"]>> | null;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/posts/timelapse": {
+    input: {
+      "after": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>[0], ["after"]>>;
+      "post": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Posting"]["_get"]>[0], ["post"]>>;
+    };
+    output: {
+      "createdAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Posting"]["_get"]>>>, ["createdAt"]>>;
+      "found": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>>>, ["found"]>>;
+      "updates": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recording"]>>>, ["updates"]>>;
+    } | {
+      "createdAt": 0;
+      "found": false;
+      "updates": never[];
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/posts/unlike": {
+    input: {
+      "post": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Liking"]["unlike"]>[0], ["item"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/streaks/current": {
+    input: Record<string, never>;
+    output: {
+      "streakCount": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["StreakTracking"]["expire"]>>, ["streakCount"]>>;
+    };
+    error: { error: HttpAppWideError | "INTERNAL_ERROR" | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
 };

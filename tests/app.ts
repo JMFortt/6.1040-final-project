@@ -13,9 +13,9 @@ const ORIGIN = "http://127.0.0.1:8080";
 export type RedrawApi = Client<RedrawWireHttp, HttpClientError>;
 
 /** The running app, in process. Each browser has its own cookies. */
-export function createApp(database: Db) {
+export function createApp(database: Db, clock?: () => Date) {
   const commons = new MemoryProvider();
-  const application = assembleApplication({ database, commons });
+  const application = assembleApplication({ database, commons }, clock);
   const handler = createHttpHandler({
     application,
     gateway: createGateway({ application }),
