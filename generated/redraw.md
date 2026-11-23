@@ -29,6 +29,26 @@ Defined in [Authenticating](../design/concepts/Authenticating.md), line 1.
 - `Authenticating` — instance of `Authenticating` — [Application types](../design/types.md), line 10.
   - `User` is `Registering.User` — [Application types](../design/types.md), line 11.
 
+### CoverageTracking
+
+Defined in [CoverageTracking](../design/concepts/CoverageTracking.md), line 1.
+
+#### Actions
+
+- `record(artist: Artist, key: String, fundamentals: Set<Fundamental>) : returns ()`
+  - Refuses `NO_FUNDAMENTALS`: A practice must exercise at least one fundamental.
+  - Refuses `PRACTICE_KEY_REUSED`: This practice has already been recorded with different fundamentals.
+
+#### Queries
+
+- `_coverage(artist: Artist, fundamentals: Set<Fundamental>) : many (fundamental: Fundamental, count: Number)`
+
+#### Instances
+
+- `CoverageTracking` — instance of `CoverageTracking` — [Application types](../design/types.md), line 36.
+  - `Artist` is `Registering.User` — [Application types](../design/types.md), line 37.
+  - `Fundamental` is `FundamentalName` — [Application types](../design/types.md), line 38.
+
 ### Federating
 
 Defined in [Federating](../design/concepts/Federating.md), line 1.
@@ -212,7 +232,8 @@ Defined in [TimeLapsing](../design/concepts/TimeLapsing.md), line 1.
 
 Concrete types:
 
-- `TimelapseNumber` — [Application types](../design/types.md), line 44.
+- `FundamentalName` — [Application types](../design/types.md), line 53.
+- `TimelapseNumber` — [Application types](../design/types.md), line 50.
 
 ## Computations
 

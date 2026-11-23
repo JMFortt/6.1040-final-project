@@ -8,6 +8,7 @@ import { posting } from "./concepts/Posting/registry.ts";
 import { following } from "./concepts/Following/registry.ts";
 import { liking } from "./concepts/Liking/registry.ts";
 import { streakTracking } from "./concepts/StreakTracking/registry.ts";
+import { coverageTracking } from "./concepts/CoverageTracking/registry.ts";
 import { easternWeek } from "./practice/week.ts";
 
 export const applicationConceptSet = conceptSet({
@@ -20,6 +21,7 @@ export const applicationConceptSet = conceptSet({
   Following: following,
   Liking: liking,
   StreakTracking: streakTracking,
+  CoverageTracking: coverageTracking,
 }, { easternWeek });
 
 export const { concepts, computations } = applicationConceptSet;

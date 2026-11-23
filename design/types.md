@@ -32,7 +32,13 @@ instantiate Liking with
 
 instantiate StreakTracking with
   User is Registering.User
+
+instantiate CoverageTracking with
+  Artist is Registering.User
+  Fundamental is FundamentalName
 ```
+
+CoverageTracking counts practices per artist and fundamental. Nothing records practices yet: the reaction that will do so needs submissions to name their reference image, and ReferencePhotoBinning to supply that image's fundamentals. Until then, fundamentals are plain names. When ReferencePhotoBinning exists, Fundamental should be bound to its tag type instead.
 
 StreakTracking counts consecutive periods without knowing what a period is. The [streaks composition](compositions/practice/streaks.md) numbers Eastern Time weeks and passes the current one in.
 
@@ -43,4 +49,7 @@ Posting shares completed timelapses. TimeLapsing numbers each artist's completed
 ```types
 concrete TimelapseNumber
   The index TimeLapsing gives one of an author's completed recordings. It is meaningful only together with that author.
+
+concrete FundamentalName
+  The name of a drawing fundamental, such as perspective or lighting. A stand-in until ReferencePhotoBinning supplies the tag type.
 ```
