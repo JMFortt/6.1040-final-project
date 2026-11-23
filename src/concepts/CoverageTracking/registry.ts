@@ -5,8 +5,8 @@ import type { User } from "../Registering/Registering.ts";
 import { CoverageTrackingConcept, NoFundamentals, PracticeKeyReused } from "./CoverageTracking.ts";
 
 /**
- * Artists are registered users. Fundamentals are plain names until ReferencePhotoBinning
- * exists; then they should become that concept's tag type.
+ * Artists are registered users. A fundamental is a plain name, the same tag type
+ * ReferencePhotoBinning stores on a reference photo.
  */
 class CoverageTracking extends CoverageTrackingConcept<User, string> {}
 

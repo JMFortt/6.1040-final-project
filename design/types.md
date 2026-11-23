@@ -36,9 +36,13 @@ instantiate StreakTracking with
 instantiate CoverageTracking with
   Artist is Registering.User
   Fundamental is FundamentalName
+
+instantiate ReferencePhotoBinning with
+  Admin is Registering.User
+  Fundamental is FundamentalName
 ```
 
-CoverageTracking counts practices per artist and fundamental. Nothing records practices yet: the reaction that will do so needs submissions to name their reference image, and ReferencePhotoBinning to supply that image's fundamentals. Until then, fundamentals are plain names. When ReferencePhotoBinning exists, Fundamental should be bound to its tag type instead.
+CoverageTracking counts practices per artist and fundamental. ReferencePhotoBinning tags each reference photo with the same fundamental names. The [references composition](compositions/practice/references.md) passes the current Eastern Time day, and the concept assigns one photo to each fundamental for that day. Nothing records a practice against a photo yet: a submission does not name a reference image, so no reaction can pass that image's tags into CoverageTracking.record.
 
 StreakTracking counts consecutive periods without knowing what a period is. The [streaks composition](compositions/practice/streaks.md) numbers Eastern Time weeks and passes the current one in.
 
@@ -51,5 +55,5 @@ concrete TimelapseNumber
   The index TimeLapsing gives one of an author's completed recordings. It is meaningful only together with that author.
 
 concrete FundamentalName
-  The name of a drawing fundamental, such as perspective or lighting. A stand-in until ReferencePhotoBinning supplies the tag type.
+  The name of a drawing fundamental, such as perspective or lighting. ReferencePhotoBinning stores these tags, and CoverageTracking counts them.
 ```

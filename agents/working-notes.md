@@ -2,6 +2,15 @@
 
 Unresolved on purpose. Add a dated note when the team decides. Do not edit `deliverables/` to close one of these unless a teammate asks.
 
+## 2026-11-23 — reference bank
+
+ReferencePhotoBinning is an executable concept. The F3 deliverable is unchanged. Its two gaps are resolved as follows.
+
+- The curator is an argument. `appoint` records who may add, remove, and tag. The first curator appoints themself; a curator appoints the next. The concept refuses anyone else. The composition takes the curator from the session and resolves a username through Registering.
+- A request names one fundamental. The composition computes the Eastern Time calendar day with `easternDay` and passes it in, the same way streaks pass a week, so the concept still has no clock. The first request of a day assigns one photo to every fundamental that has one. Everyone who asks for that fundamental that day receives the stored photo. Assignment prefers the photo used least recently, and breaks ties at random. A photo already assigned to another fundamental today is skipped, unless it is the only photo tagged with the requested fundamental. Fundamentals are filled in alphabetical order. The assignment stays until that photo is removed or loses the tag.
+- A photo stores a source string and a credit, not the file bytes. The source is whatever text the curator supplies, such as a URL. One to eight tags, a key of at most 80 characters, a source of at most 2048, and a credit of at most 300.
+- The reaction that would record CoverageTracking when a drawing is finished is still deferred. `TimeLapsing.complete` does not name a reference image, so there is nothing to pass.
+
 ## 2026-11-23 — timelapse picture
 
 A completion stores the picture of that recording as an opaque string. The drawing composition accepts only a WebP, at most 1.5 MB, produced in the browser from the 1200 × 900 raster and composited over white. It is not a capture of the screen. Recordings completed before this have no picture. The feed shows the stored picture for the finished drawing and still loads strokes only to watch the process.
@@ -75,7 +84,7 @@ Do not invent these while building the four specified concepts.
 
 Ask before adding a Redraw concept to `design/` or changing a deliverable. A quiet repair would be a design change.
 
-- **ReferencePhotoBinning.** `submitPhoto` requires an admin submitter, and the submitter is not an argument. `_requestPhoto` limits results to “the bank of the day, managed by the server,” and the state block has no day, no window, and no selection. The purpose says everyone in a time window shares one bank; the state is a single set of tagged images.
+- **ReferencePhotoBinning — resolved on 2026-11-23.** See the reference bank note. The curator is an argument, and the shared bank is the one set of tagged photos rather than a stored day.
 - **CoverageTracking.addImage** reads `FundamentalTags` off a `ReferenceImage`. Those tags are state of ReferencePhotoBinning. Passing the image id and then opening its fields couples the two concepts. A reaction can query the bank and pass tags or counts in, if the team wants that.
 - **TimeLapsing — resolved for this iteration on 2026-11-20.** The team selected one persistent private canvas per artist. The executable spec scopes updates by owner and exposes paginated history; video rendering is deferred. The submitted `_render` outline remains unchanged.
 - **StreakTracking.** The principle is “first engagement in 24 hours increments; a missed day resets.” `engage` also says the new day must be one higher than the previous. `expire` is a separate action. Day boundaries (midnight versus rolling 24 hours) are not defined. The state field is a `Number`.

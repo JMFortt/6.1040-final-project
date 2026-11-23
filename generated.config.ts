@@ -22,6 +22,7 @@ export default {
       new URL("./design/compositions/sharing/posts.md", import.meta.url),
       new URL("./design/compositions/sharing/people.md", import.meta.url),
       new URL("./design/compositions/practice/streaks.md", import.meta.url),
+      new URL("./design/compositions/practice/references.md", import.meta.url),
     ],
   },
   projections: [httpWire({ policy: redrawPolicy("http://127.0.0.1:8080"), name: "RedrawWireHttp" })],

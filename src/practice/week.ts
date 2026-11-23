@@ -9,13 +9,17 @@ const calendar = new Intl.DateTimeFormat("en-US", {
   timeZone: STREAK_TIME_ZONE, year: "numeric", month: "numeric", day: "numeric",
 });
 
+/** The Eastern Time calendar date as a day number. Day 0 is 1970-01-01, and day n + 1 is the next local date. */
+export function easternDay({ instant }: { instant: Date | number | string }): number {
+  const parts = Object.fromEntries(calendar.formatToParts(new Date(instant)).map(({ type, value }) => [type, value]));
+  return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) / DAY;
+}
+
 /**
  * The number of the Eastern Time week containing `instant`. Week 0 began on Monday
  * 1970-01-05 at midnight Eastern Time, and week n + 1 immediately follows week n.
  * Weeks follow the local calendar date, so they stay aligned across daylight saving changes.
  */
 export function easternWeek({ instant }: { instant: Date | number | string }): number {
-  const parts = Object.fromEntries(calendar.formatToParts(new Date(instant)).map(({ type, value }) => [type, value]));
-  const day = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) / DAY;
-  return Math.floor((day - FIRST_MONDAY) / 7);
+  return Math.floor((easternDay({ instant }) - FIRST_MONDAY) / 7);
 }

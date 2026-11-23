@@ -351,6 +351,57 @@ export type RedrawWire = {
     output: Record<string, never>;
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_LIKED" | "NOT_SIGNED_IN" };
   };
+  "/references/add": {
+    input: {
+      "credit": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>[0], ["credit"]>>;
+      "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>[0], ["key"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+      "source": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>[0], ["source"]>>;
+      "tags": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>[0], ["tags"]>>;
+    };
+    output: {
+      "image": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>>, ["image"]>>;
+    };
+    error: { error: AppWideError | "IMAGE_KEY_REUSED" | "INVALID_IMAGE" | "INVALID_INPUT" | "NOT_CURATOR" | "NOT_SIGNED_IN" | "SOURCE_REUSED" };
+  };
+  "/references/appoint": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Registering"]["_byUsername"]>[0], ["username"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: AppWideError | "ALREADY_CURATOR" | "FIRST_CURATOR" | "INVALID_INPUT" | "NOT_CURATOR" | "NOT_SIGNED_IN" | "USER_NOT_FOUND" };
+  };
+  "/references/remove": {
+    input: {
+      "image": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["remove"]>[0], ["image"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: AppWideError | "IMAGE_NOT_FOUND" | "INVALID_INPUT" | "NOT_CURATOR" | "NOT_SIGNED_IN" };
+  };
+  "/references/request": {
+    input: {
+      "fundamental": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>[0], ["fundamental"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "credit": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>>, ["credit"]>>;
+      "found": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>>, ["found"]>>;
+      "image": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>>, ["image"]>>;
+      "source": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>>, ["source"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/references/tag": {
+    input: {
+      "image": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["tag"]>[0], ["image"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+      "tags": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["tag"]>[0], ["tags"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: AppWideError | "IMAGE_NOT_FOUND" | "INVALID_IMAGE" | "INVALID_INPUT" | "NOT_CURATOR" | "NOT_SIGNED_IN" };
+  };
   "/streaks/current": {
     input: {
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
@@ -660,6 +711,52 @@ export type RedrawWireHttp = {
     };
     output: Record<string, never>;
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/references/add": {
+    input: {
+      "credit": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>[0], ["credit"]>>;
+      "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>[0], ["key"]>>;
+      "source": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>[0], ["source"]>>;
+      "tags": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>[0], ["tags"]>>;
+    };
+    output: {
+      "image": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["add"]>>, ["image"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "FORBIDDEN" | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/references/appoint": {
+    input: {
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Registering"]["_byUsername"]>[0], ["username"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: HttpAppWideError | "CONFLICT" | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/references/remove": {
+    input: {
+      "image": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["remove"]>[0], ["image"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: HttpAppWideError | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/references/request": {
+    input: {
+      "fundamental": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>[0], ["fundamental"]>>;
+    };
+    output: {
+      "credit": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>>, ["credit"]>>;
+      "found": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>>, ["found"]>>;
+      "image": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>>, ["image"]>>;
+      "source": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>>, ["source"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/references/tag": {
+    input: {
+      "image": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["tag"]>[0], ["image"]>>;
+      "tags": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["tag"]>[0], ["tags"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: HttpAppWideError | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
   };
   "/streaks/current": {
     input: Record<string, never>;
