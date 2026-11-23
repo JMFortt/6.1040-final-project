@@ -193,7 +193,7 @@ onBeforeUnmount(() => {
         <img v-if="!imageFailed" :src="src" :alt="alt" :style="{ width: `${imageWidth}px`, height: `${imageHeight}px`, transform: `translate(-50%, -50%) translate(${panX}px, ${panY}px) scale(${zoom})` }" draggable="false" @load="imageLoaded" @error="imageFailed = true" />
         <p v-else role="status">Reference image could not be loaded.</p>
       </div>
-      <div class="reference-footer"><p class="caption">{{ caption || 'Reference image' }}</p><span class="resize-hint">Resize</span></div>
+      <div class="reference-footer"><p class="caption">{{ caption || 'Reference image' }}</p></div>
       <button class="resize-handle resize-left" type="button" aria-label="Resize reference panel from left corner" title="Drag left to widen, down to increase height" @pointerdown="start($event, 'resize-left')" @pointermove="drag" @pointerup="end" @pointercancel="end" @lostpointercapture="end" @keydown.stop="withKeys($event, 'resize-left')">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 16 11-11M11 16l5-5" /></svg>
       </button>
@@ -229,7 +229,6 @@ button:focus-visible, .image-frame:focus-visible { outline: 2px solid #567b8a; o
 .image-frame p { margin: 0; padding: 16px; text-align: center; font-size: 12px; color: #70776e; }
 .reference-footer { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 22px; flex-shrink: 0; }
 .caption { margin: 0; font-size: 10px; color: #70776e; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.resize-hint { margin-left: auto; color: #70776e; font-size: 10px; }
 .resize-handle { position: absolute; bottom: 0; right: 0; display: grid; place-items: center; width: 32px; height: 32px; cursor: nwse-resize; touch-action: none; user-select: none; }
 .resize-left { left: 0; right: auto; cursor: nesw-resize; }
 .resize-left svg { transform: scaleX(-1); }
