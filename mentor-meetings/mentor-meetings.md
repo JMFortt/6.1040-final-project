@@ -83,3 +83,29 @@ We intend to build an app that:
 - Debating the level of social elements (likes, public follower count, etc)
 
 - Plan to work on the MVP and decide on social features for later version
+
+## 11/25
+
+### Agenda: topics to be discussed with time allocated to each
+
+**3:15PM - 3:30PM**: ???
+
+**3:30PM - 3:45PM**: ???
+
+**3:45PM - 4:00PM**: ???
+
+### Progress report: how last week went, alignment to plan
+
+TODO
+
+### Design changes: what changes were made to the design since the last meeting
+
+TODO
+
+### Issues: problems and issues to address, with a sentence or two explaining each
+
+TODO
+
+### Plans & decisions (completed after): plans for next week and decisions made
+
+TODO
