@@ -1,23 +1,25 @@
 <script setup lang="ts">
-export type Page = "home" | "timelapses" | "community";
+export type Page = "home" | "draw" | "timelapses" | "community";
 
-defineProps<{ current: Page; username: string }>();
+defineProps<{ current: Page; username: string; locked?: boolean }>();
 const emit = defineEmits<{ navigate: [page: Page]; practice: []; help: []; signOut: [] }>();
 
 const pages: { id: Page; label: string }[] = [
   { id: "home", label: "Home" },
+  { id: "draw", label: "Draw" },
   { id: "timelapses", label: "My artworks" },
   { id: "community", label: "Community" },
 ];
+const leaveTitle = "Finish saving this artwork before leaving.";
 </script>
 
 <template>
   <header class="nav">
-    <button class="wordmark" aria-label="Redraw home" @click="emit('navigate', 'home')">redraw<span>/</span></button>
+    <button class="wordmark" aria-label="Redraw home" :disabled="locked" :title="locked ? leaveTitle : 'Redraw home'" @click="emit('navigate', 'home')">redraw<span>/</span></button>
     <nav aria-label="Main">
       <ul>
         <li v-for="page in pages" :key="page.id">
-          <button class="tab" :class="{ active: current === page.id }" :aria-current="current === page.id ? 'page' : undefined" @click="emit('navigate', page.id)">{{ page.label }}</button>
+          <button class="tab" :class="{ active: current === page.id }" :aria-current="current === page.id ? 'page' : undefined" :disabled="locked && current !== page.id" :title="locked && current !== page.id ? leaveTitle : undefined" @click="emit('navigate', page.id)">{{ page.label }}</button>
         </li>
       </ul>
     </nav>
@@ -25,7 +27,7 @@ const pages: { id: Page; label: string }[] = [
       <button class="practice" @click="emit('practice')">Start Daily Practice</button>
       <button class="quiet" @click="emit('help')">Help</button>
       <span class="me" :title="`Signed in as ${username}`">{{ username }}</span>
-      <button class="quiet" @click="emit('signOut')">Sign out</button>
+      <button class="quiet" :disabled="locked" :title="locked ? leaveTitle : undefined" @click="emit('signOut')">Sign out</button>
     </div>
   </header>
 </template>
@@ -33,6 +35,7 @@ const pages: { id: Page; label: string }[] = [
 <style scoped>
 .nav { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 12px 28px; border-bottom: 1px solid #dfe2d8; background: #fcfcf8; color: #27372d; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; }
 button { font: inherit; cursor: pointer; border: 1px solid #d5dcc7; border-radius: 8px; background: white; color: inherit; padding: 8px 14px; min-height: 40px; font-size: 13px; }
+button:disabled { cursor: not-allowed; opacity: 0.45; }
 button:focus-visible { outline: 2px solid #567b8a; outline-offset: 3px; }
 .wordmark { font-size: 25px; font-weight: 700; letter-spacing: -1px; background: none; border: 0; padding: 0; }
 .wordmark span { color: #929a77; }
