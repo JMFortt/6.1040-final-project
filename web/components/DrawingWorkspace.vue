@@ -493,7 +493,7 @@ input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
 .zoom-control button { min-width: 36px; min-height: 36px; background: #f5f6ef; border: 1px solid #d9dece; padding: 7px 10px; border-radius: 6px; color: var(--ink); }
 .zoom-control button:hover { background: #e0e6d5; }
 .zoom-control button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: white; }
-.zoom-control output { width: 42px; text-align: center; }
+.zoom-control output { width: 42px; justify-content: center; text-align: center; }
 .canvas-stage { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; touch-action: none; }
 .canvas-stage.pan-mode { cursor: grab; }
 .canvas-stage.panning { cursor: grabbing; }
