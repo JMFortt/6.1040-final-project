@@ -45,15 +45,31 @@ let finishPromise: Promise<void> = Promise.resolve();
 let resize: ResizeObserver | undefined;
 let disposed = false;
 
-const storage = useCanvasHistory(async (strokes) => {
-  restoring.value = true;
+const storage = useCanvasHistory(async (strokes, mode = "replace") => {
+  const quiet = mode !== "replace";
+  if (!quiet) restoring.value = true;
   try {
     if (active) await endStroke();
     await finishPromise;
-    if (!disposed) await renderer?.restore([...strokes, ...storage.pending.value.map((item) => parseStroke(item.change)!).filter(Boolean)]);
-  } finally { restoring.value = false; }
+    if (disposed || !renderer) return;
+    if (mode === "undo" && renderer.canRewind()) {
+      renderer.rewind();
+      return;
+    }
+    if (mode === "redo" && renderer.canReplay()) {
+      renderer.replayForward();
+      return;
+    }
+    if (mode === "redo") {
+      const stroke = strokes.at(-1);
+      if (stroke) await renderer.append(stroke);
+      return;
+    }
+    const pendingStrokes = quiet ? [] : storage.pending.value.map((item) => parseStroke(item.change)).filter((stroke) => stroke !== null);
+    await renderer.restore([...strokes, ...pendingStrokes], { quiet });
+  } finally { if (!quiet) restoring.value = false; }
 });
-const { pending, saved, saving, loading, error, unsaved, submitting, submissionPending, blocked, rejectedKey } = storage;
+const { pending, saved, canUndo, canRedo, saving, loading, error, unsaved, submitting, submissionPending, blocked, rejectedKey } = storage;
 const navigationDisabled = computed(() => unsaved.value || drawing.value || finishing.value || saving.value || submitting.value || restoring.value || loading.value);
 const status = computed(() => loading.value || restoring.value ? "Restoring canvas…"
   : submitting.value ? "Submitting timelapse…"
@@ -266,12 +282,29 @@ async function submitDrawing() {
   }
 }
 
+function reviseHistory(kind: "undo" | "redo") {
+  if (!ready.value || drawing.value || finishing.value || restoring.value || panning.value) return;
+  if (kind === "undo" ? !canUndo.value : !canRedo.value) return;
+  picking.value = false;
+  void (kind === "undo" ? storage.undo() : storage.redo());
+}
+
 function keydown(event: KeyboardEvent) {
   if (event.key === "Escape") {
     picking.value = false;
     return;
   }
-  if (event.ctrlKey || event.metaKey || event.altKey || (event.target instanceof HTMLElement && event.target.matches("input, select, textarea, [contenteditable]"))) return;
+  const typing = event.target instanceof HTMLElement && event.target.matches("input, select, textarea, [contenteditable]");
+  if (!typing && !event.altKey && !event.shiftKey && (event.ctrlKey || event.metaKey)) {
+    const key = event.key.toLowerCase();
+    if (key === "z" || key === "y") {
+      event.preventDefault();
+      if (drawing.value || finishing.value || restoring.value || panning.value) return;
+      reviseHistory(key === "z" ? "undo" : "redo");
+      return;
+    }
+  }
+  if (event.ctrlKey || event.metaKey || event.altKey || typing) return;
   const next = tools.find((entry) => entry.key.toLowerCase() === event.key.toLowerCase());
   if (next) chooseTool(next.id);
   if (event.key.toLowerCase() === "c") togglePick();
@@ -285,6 +318,7 @@ onMounted(async () => {
   await nextTick();
   if (disposed) return;
   renderer = new StrokeRenderer(canvas.value!);
+  renderer.track();
   resize = new ResizeObserver(([entry]) => {
     const { width, height } = entry!.contentRect;
     fitScale.value = Math.max(0.1, Math.min((width - 48) / CANVAS_WIDTH, (height - 48) / CANVAS_HEIGHT, 1));
@@ -315,6 +349,16 @@ onBeforeUnmount(() => {
     </header>
 
     <aside class="tools-panel" aria-label="Drawing tools">
+      <div class="history-actions" role="group" aria-label="Undo and redo">
+        <button type="button" class="history" title="Undo (Ctrl+Z)" :disabled="!canUndo || !ready || drawing || finishing || restoring || panning" @click="reviseHistory('undo')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H12" /></svg>
+          <span class="tool-label">Undo</span>
+        </button>
+        <button type="button" class="history" title="Redo (Ctrl+Y)" :disabled="!canRedo || !ready || drawing || finishing || restoring || panning" @click="reviseHistory('redo')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H12" /></svg>
+          <span class="tool-label">Redo</span>
+        </button>
+      </div>
       <div class="tool-list" role="group" aria-label="Choose a drawing tool">
         <button v-for="entry in tools" :key="entry.id" class="tool" :class="{ selected: tool === entry.id }" :aria-pressed="tool === entry.id" :title="`${entry.name} (${entry.key})`" @click="chooseTool(entry.id)">
           <span class="tool-icon"><ToolIcon :tool="entry.id" /></span>
@@ -401,7 +445,11 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .avatar { display: grid; place-items: center; width: 31px; height: 31px; background: #e7ebdf; border: 1px solid #d9dfd0; border-radius: 50%; font-size: 11px; font-weight: 600; }
 .username { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
 .sign-out { color: var(--muted); background: none; border: 0; border-left: 1px solid var(--line); padding: 8px 0 8px 15px; margin-left: 5px; font-size: 12px; }
-.tools-panel { display: flex; flex-direction: column; border-right: 1px solid var(--line); padding: 28px 20px 20px; overflow: auto; background: #fcfcf8; }
+.tools-panel { display: flex; flex-direction: column; border-right: 1px solid var(--line); padding: 8px 20px 20px; overflow: auto; background: #fcfcf8; }
+.history-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 14px; }
+.history { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; border: 1px solid transparent; border-radius: 8px; padding: 10px 6px; background: transparent; color: var(--ink); }
+.history:hover:not(:disabled) { background: #f0f2e9; }
+.history svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .tool-list { display: grid; gap: 7px; }
 .tool { display: flex; align-items: center; gap: 11px; border: 1px solid transparent; border-radius: 8px; padding: 12px 9px; background: transparent; color: var(--ink); text-align: left; width: 100%; }
 .tool:hover { background: #f0f2e9; }
@@ -473,7 +521,7 @@ input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
 .save-error button { border: 1px solid #b29d7e; padding: 5px 13px; color: inherit; border-radius: 4px; background: #fff9ef; }
 .studio-footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; color: var(--muted); border-top: 1px solid var(--line); background: #fcfcf8; font-size: 10px; }
 @media (max-width: 760px) { .zoom-control button { min-width: 44px; min-height: 44px; } .eyedropper { min-width: 44px; height: 44px; } }
-@media (max-height: 780px) and (min-width: 761px) { .tools-panel { padding-top: 20px; } .tool { padding-top: 9px; padding-bottom: 9px; } .settings { margin-top: 17px; padding-top: 18px; padding-bottom: 18px; } }
+@media (max-height: 780px) and (min-width: 761px) { .tool { padding-top: 9px; padding-bottom: 9px; } .settings { margin-top: 17px; padding-top: 18px; padding-bottom: 18px; } }
 @media (max-width: 1000px) { .studio { grid-template-columns: 218px minmax(0, 1fr); } .studio-header { gap: 15px; padding: 0 20px; } .wordmark { width: 170px; } .tools-panel { padding-left: 14px; padding-right: 14px; } .tool { gap: 8px; padding-left: 7px; padding-right: 7px; } .canvas-toolbar { padding-right: 16px; } }
-@media (max-width: 760px) { .studio { height: auto; min-height: 100dvh; grid-template: 64px auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .studio-header { padding: 0 16px; } .wordmark { width: auto; font-size: 23px; } .document-title, .username { display: none; } .account { gap: 8px; } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }  .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 5px; } .tool { flex-direction: column; gap: 5px; padding: 8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .color-picker { margin-top: 0; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 12px 16px 0; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 315px); } .studio-footer { grid-row: 4; padding: 0 16px; } }
+@media (max-width: 760px) { .studio { height: auto; min-height: 100dvh; grid-template: 64px auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .studio-header { padding: 0 16px; } .wordmark { width: auto; font-size: 23px; } .document-title, .username { display: none; } .account { gap: 8px; } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; } .history-actions { grid-column: 1 / -1; margin-bottom: 0; } .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 5px; } .tool { flex-direction: column; gap: 5px; padding: 8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .color-picker { margin-top: 0; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 12px 16px 0; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 315px); } .studio-footer { grid-row: 4; padding: 0 16px; } }
 </style>

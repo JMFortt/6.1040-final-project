@@ -32,19 +32,19 @@ describe("Canvas", () => {
     await maya.canvas.stroke(ink);
     await maya.canvas.stroke(eraser);
     expect(await maya.canvas.submit(submission)).toEqual({ index: 1, sequence: 3 });
-    expect(await maya.canvas.history({ after: 0 })).toEqual({ start: 3, updates: [] });
+    expect(await maya.canvas.history({ after: 0 })).toEqual({ start: 3, tip: 3, updates: [], redo: 0 });
     const next = request(stroke, 4);
     await maya.canvas.stroke(next);
     expect(await maya.canvas.submit(submission)).toEqual({ index: 1, sequence: 3 });
     expect(await maya.canvas.timelapse({ index: 1, after: 0 })).toEqual({ found: true, updates: [ink, eraser] });
-    expect(await maya.canvas.history({ after: 0 })).toEqual({ start: 3, updates: [next] });
+    expect(await maya.canvas.history({ after: 0 })).toEqual({ start: 3, tip: 4, updates: [next], redo: 0 });
     expect(await maya.canvas.submit({ key: crypto.randomUUID(), sequence: 5 })).toEqual({ index: 2, sequence: 5 });
     await maya.auth.logout();
     await maya.auth.login({ username: "maya", password: "maya-password-123" });
     const list = await maya.canvas.timelapses({ after: 0 });
     if ("error" in list) throw new Error(list.error);
     expect(list.recordings.map(r => [r.index, r.count])).toEqual([[1, 2], [2, 1]]);
-    expect(await maya.canvas.history({ after: 0 })).toEqual({ start: 5, updates: [] });
+    expect(await maya.canvas.history({ after: 0 })).toEqual({ start: 5, tip: 5, updates: [], redo: 0 });
     const ben = browser();
     await ben.auth.register({ username: "ben", password: "ben-password-123" });
     expect(await ben.canvas.timelapses({ after: 0 })).toEqual({ recordings: [] });
@@ -65,10 +65,10 @@ describe("Canvas", () => {
     expect(await maya["/canvas/stroke"](eraser)).toEqual({ sequence: 2 });
     await maya["/auth/logout"]();
     await maya["/auth/login"]({ username: "maya", password: "maya-password-123" });
-    expect(await maya["/canvas/history"]({ after: 0 })).toEqual({ start: 0, updates: [ink, eraser] });
+    expect(await maya["/canvas/history"]({ after: 0 })).toEqual({ start: 0, tip: 2, updates: [ink, eraser], redo: 0 });
     const ben = browser();
     await ben["/auth/register"]({ username: "ben", password: "ben-password-123" });
-    expect(await ben["/canvas/history"]({ after: 0 })).toEqual({ start: 0, updates: [] });
+    expect(await ben["/canvas/history"]({ after: 0 })).toEqual({ start: 0, tip: 0, updates: [], redo: 0 });
     expect(await maya["/canvas/stroke"](ink)).toEqual({ sequence: 1 });
     expect(await maya["/canvas/stroke"](request())).toEqual({ error: "CONFLICT" });
   });
@@ -91,6 +91,6 @@ describe("Canvas", () => {
     }
     const forged = { ...request(), owner: "ben" };
     expect(await maya["/canvas/stroke"](forged)).toEqual({ error: "INVALID_REQUEST" });
-    expect(await maya["/canvas/history"]({ after: 0 })).toEqual({ start: 0, updates: [] });
+    expect(await maya["/canvas/history"]({ after: 0 })).toEqual({ start: 0, tip: 0, updates: [], redo: 0 });
   });
 });

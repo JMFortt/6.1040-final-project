@@ -159,7 +159,7 @@ async function must<T extends object>(label: string, answer: Promise<T | { error
 /** Draws each picture stroke by stroke, submits it as a timelapse, and shares it. */
 async function drawAndShare(api: RedrawApi, drawings: (() => Stroke[])[]) {
   const history = await must("history", api.canvas.history({ after: 0 }));
-  let sequence = history.start + history.updates.length + 1;
+  let sequence = history.tip + 1;
   const posts: string[] = [];
   for (const draw of drawings) {
     const started = Date.now();

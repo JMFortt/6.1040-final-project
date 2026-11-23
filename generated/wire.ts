@@ -98,10 +98,27 @@ export type RedrawWire = {
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
     };
     output: {
+      "redo": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["redo"]>>;
       "start": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["start"]>>;
+      "tip": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["tip"]>>;
       "updates": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["updates"]>>;
     };
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/canvas/redo": {
+    input: {
+      "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>[0], ["key"]>>;
+      "sequence": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>[0], ["sequence"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+      "timestamp": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>[0], ["timestamp"]>>;
+    };
+    output: {
+      "change": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>>, ["change"]>>;
+      "key": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>>, ["key"]>>;
+      "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>>, ["sequence"]>>;
+      "timestamp": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>>, ["timestamp"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_UPDATE" | "NOTHING_TO_REDO" | "NOT_SIGNED_IN" | "STALE_HISTORY" | "UPDATE_KEY_REUSED" };
   };
   "/canvas/stroke": {
     input: {
@@ -149,6 +166,19 @@ export type RedrawWire = {
       "recordings": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recordings"]>>>, ["recordings"]>>;
     };
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/canvas/undo": {
+    input: {
+      "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>[0], ["key"]>>;
+      "sequence": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>[0], ["sequence"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+      "timestamp": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>[0], ["timestamp"]>>;
+    };
+    output: {
+      "removed": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>>, ["removed"]>>;
+      "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>>, ["sequence"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_UPDATE" | "NOTHING_TO_UNDO" | "NOT_SIGNED_IN" | "STALE_HISTORY" | "UPDATE_KEY_REUSED" };
   };
   "/people/follow": {
     input: {
@@ -374,10 +404,26 @@ export type RedrawWireHttp = {
       "after": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>[0], ["after"]>>;
     };
     output: {
+      "redo": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["redo"]>>;
       "start": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["start"]>>;
+      "tip": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["tip"]>>;
       "updates": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_history"]>>>, ["updates"]>>;
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/canvas/redo": {
+    input: {
+      "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>[0], ["key"]>>;
+      "sequence": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>[0], ["sequence"]>>;
+      "timestamp": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>[0], ["timestamp"]>>;
+    };
+    output: {
+      "change": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>>, ["change"]>>;
+      "key": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>>, ["key"]>>;
+      "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>>, ["sequence"]>>;
+      "timestamp": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["redo"]>>, ["timestamp"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
   "/canvas/stroke": {
     input: {
@@ -421,6 +467,18 @@ export type RedrawWireHttp = {
       "recordings": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["_recordings"]>>>, ["recordings"]>>;
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/canvas/undo": {
+    input: {
+      "key": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>[0], ["key"]>>;
+      "sequence": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>[0], ["sequence"]>>;
+      "timestamp": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>[0], ["timestamp"]>>;
+    };
+    output: {
+      "removed": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>>, ["removed"]>>;
+      "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>>, ["sequence"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
   "/people/follow": {
     input: {

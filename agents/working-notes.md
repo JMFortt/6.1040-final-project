@@ -2,6 +2,10 @@
 
 Unresolved on purpose. Add a dated note when the team decides. Do not edit `deliverables/` to close one of these unless a teammate asks.
 
+## 2026-11-23 — undo and redo
+
+Undo and redo are events on the same TimeLapsing log. Folding that log yields the drawing: a stroke pushes and clears the redo stack, undo lifts the latest stroke onto it, and redo puts that stroke back. The working canvas and a submitted recording show only the strokes still on the drawing. Ctrl+Z undoes and Ctrl+Y redoes, after the current gesture and any pending strokes have saved.
+
 ## 2026-11-23 — StreakTracking + CoverageTracking (Julia)
 
 Julia chose a **weekly** streak, with weeks running Monday 00:00 to Sunday 24:00 America/New_York. [`StreakTracking`](../design/concepts/StreakTracking.md) stays close to the F3 deliverable. The caller passes a period number, so the concept stays general, and the composition computes the Eastern Time week. Implemented on 2026-11-23 with the [streaks composition](../design/compositions/practice/streaks.md). Home shows the streak beside the practice button.

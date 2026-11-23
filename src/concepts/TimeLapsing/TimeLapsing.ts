@@ -5,6 +5,8 @@ export class UpdateKeyReused extends Error {}
 export class StaleHistory extends Error {}
 export class InvalidCompletion extends Error {}
 export class EmptyHistory extends Error {}
+export class NothingToUndo extends Error {}
+export class NothingToRedo extends Error {}
 
 export interface RecordedUpdate {
   key: string;
@@ -23,10 +25,37 @@ interface CompletionDocument<Owner> {
   count: number;
   createdAt: number;
 }
-type EventDocument<Owner> = UpdateDocument<Owner> | CompletionDocument<Owner>;
+interface RevisionDocument<Owner> {
+  owner: Owner;
+  kind: "undo" | "redo";
+  key: string;
+  sequence: number;
+  timestamp: number;
+}
+type EventDocument<Owner> = UpdateDocument<Owner> | CompletionDocument<Owner> | RevisionDocument<Owner>;
 const uuid = (value: unknown) => typeof value === "string" && /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(value);
 const cursor = (value: number) => Number.isSafeInteger(value) && value >= 0 ? value : 0;
 const updateValue = ({ key, sequence, change, timestamp }: RecordedUpdate): RecordedUpdate => ({ key, sequence, change, timestamp });
+const isStroke = (event: { kind?: string; change?: string }): event is RecordedUpdate => event.kind !== "completion" && event.kind !== "undo" && event.kind !== "redo";
+
+/** The drawing is the fold of one history: strokes push, undo lifts, redo restores, and a new stroke drops the redo. */
+function fold<Owner>(events: readonly EventDocument<Owner>[]): { effective: RecordedUpdate[]; redo: RecordedUpdate[] } {
+  const effective: RecordedUpdate[] = [];
+  const redo: RecordedUpdate[] = [];
+  for (const event of events) {
+    if (event.kind === "undo") {
+      const stroke = effective.pop();
+      if (stroke) redo.push(stroke);
+    } else if (event.kind === "redo") {
+      const stroke = redo.pop();
+      if (stroke) effective.push(stroke);
+    } else if (isStroke(event)) {
+      effective.push(updateValue(event));
+      redo.length = 0;
+    }
+  }
+  return { effective, redo };
+}
 
 /** Preserves independent, ordered recordings as immutable ranges of one event log. */
 export class TimeLapsingConcept<Owner extends string> {
@@ -47,6 +76,18 @@ export class TimeLapsingConcept<Owner extends string> {
       { key: { owner: 1, index: 1 }, unique: true, partialFilterExpression: { kind: "completion" } },
     ]).catch((error: unknown) => { this.indexes = undefined; throw error; });
     return this.indexes;
+  }
+
+  async #bounds(owner: Owner): Promise<{ start: number; tip: number }> {
+    const last = await this.events.findOne({ owner }, { sort: { sequence: -1 } });
+    const tip = last?.sequence ?? 0;
+    const completion = await this.events.findOne({ owner, kind: "completion", sequence: { $lte: tip } }, { sort: { sequence: -1 } });
+    return { start: completion?.kind === "completion" ? completion.sequence : 0, tip };
+  }
+
+  async #folded(owner: Owner, start: number, through: number) {
+    const records = await this.events.find({ owner, sequence: { $gt: start, $lte: through } }).sort({ sequence: 1 }).toArray();
+    return fold(records);
   }
 
   async addUpdate({ owner, key, sequence, change, timestamp }: { owner: Owner; key: string; sequence: number; change: string; timestamp: number }) {
@@ -72,7 +113,7 @@ export class TimeLapsingConcept<Owner extends string> {
   }
 
   #retryUpdate(existing: EventDocument<Owner>, change: string, timestamp: number) {
-    if (existing.kind === "completion" || existing.change !== change || existing.timestamp !== timestamp) {
+    if (!isStroke(existing) || existing.change !== change || existing.timestamp !== timestamp) {
       throw new UpdateKeyReused("This update identifier has already been used.");
     }
     return { sequence: existing.sequence };
@@ -88,11 +129,12 @@ export class TimeLapsingConcept<Owner extends string> {
     const previous = await this.events.findOne({ owner, kind: "completion", sequence: { $lt: sequence } }, { sort: { sequence: -1 } });
     const start = previous?.kind === "completion" ? previous.sequence : 0;
     const index = previous?.kind === "completion" ? previous.index + 1 : 1;
-    if (sequence === start + 1) throw new EmptyHistory("There are no updates to complete.");
+    const { effective } = await this.#folded(owner, start, sequence - 1);
+    if (effective.length === 0) throw new EmptyHistory("There are no updates to complete.");
     try {
       // The unique sequence serializes completion against updates and other
       // completions. No deletes, copies, or multi-document transaction are needed.
-      await this.events.insertOne({ owner, key, sequence, kind: "completion", index, start, count: sequence - start - 1, createdAt: this.clock().getTime() });
+      await this.events.insertOne({ owner, key, sequence, kind: "completion", index, start, count: effective.length, createdAt: this.clock().getTime() });
     } catch (error) {
       if (!(error instanceof MongoServerError) || error.code !== 11000) throw error;
       const retried = await this.events.findOne({ owner, key });
@@ -107,15 +149,77 @@ export class TimeLapsingConcept<Owner extends string> {
     return { index: existing.index, sequence: existing.sequence };
   }
 
-  async _history({ owner, after }: { owner: Owner; after: number }): Promise<{ start: number; updates: RecordedUpdate[] }> {
+  async undo({ owner, key, sequence, timestamp }: { owner: Owner; key: string; sequence: number; timestamp: number }) {
+    if (!uuid(key) || !Number.isSafeInteger(sequence) || sequence < 1 || !Number.isSafeInteger(timestamp) || timestamp < 0) {
+      throw new InvalidUpdate("The update is not valid.");
+    }
     await this.#ready();
-    const last = await this.events.findOne({ owner }, { sort: { sequence: -1 } });
-    const end = last?.sequence ?? 0;
-    const completion = await this.events.findOne({ owner, kind: "completion", sequence: { $lte: end } }, { sort: { sequence: -1 } });
-    const start = completion?.sequence ?? 0;
-    const records = await this.events.find({ owner, sequence: { $gt: Math.max(cursor(after), start), $lte: end } })
-      .sort({ sequence: 1 }).limit(50).toArray();
-    return { start, updates: records.filter((record) => record.kind !== "completion").map(updateValue) };
+    const existing = await this.events.findOne({ owner, key });
+    if (existing) return this.#retryUndo(owner, existing, timestamp);
+    const { start, tip } = await this.#bounds(owner);
+    if (sequence !== tip + 1) throw new StaleHistory("Load the latest history before adding this update.");
+    const removed = (await this.#folded(owner, start, tip)).effective.at(-1);
+    if (!removed) throw new NothingToUndo("There is no stroke to undo.");
+    try {
+      await this.events.insertOne({ owner, key, sequence, kind: "undo", timestamp });
+    } catch (error) {
+      if (!(error instanceof MongoServerError) || error.code !== 11000) throw error;
+      const retried = await this.events.findOne({ owner, key });
+      if (retried) return this.#retryUndo(owner, retried, timestamp);
+      throw new StaleHistory("Load the latest history before adding this update.");
+    }
+    return { sequence, removed: removed.key };
+  }
+
+  async #retryUndo(owner: Owner, existing: EventDocument<Owner>, timestamp: number) {
+    if (existing.kind !== "undo" || existing.timestamp !== timestamp) throw new UpdateKeyReused("This update identifier has already been used.");
+    const removed = await this.#moved(owner, existing.sequence, "undo");
+    return { sequence: existing.sequence, removed: removed.key };
+  }
+
+  async redo({ owner, key, sequence, timestamp }: { owner: Owner; key: string; sequence: number; timestamp: number }) {
+    if (!uuid(key) || !Number.isSafeInteger(sequence) || sequence < 1 || !Number.isSafeInteger(timestamp) || timestamp < 0) {
+      throw new InvalidUpdate("The update is not valid.");
+    }
+    await this.#ready();
+    const existing = await this.events.findOne({ owner, key });
+    if (existing) return this.#retryRedo(owner, existing, timestamp);
+    const { start, tip } = await this.#bounds(owner);
+    if (sequence !== tip + 1) throw new StaleHistory("Load the latest history before adding this update.");
+    const restored = (await this.#folded(owner, start, tip)).redo.at(-1);
+    if (!restored) throw new NothingToRedo("There is no stroke to redo.");
+    try {
+      await this.events.insertOne({ owner, key, sequence, kind: "redo", timestamp });
+    } catch (error) {
+      if (!(error instanceof MongoServerError) || error.code !== 11000) throw error;
+      const retried = await this.events.findOne({ owner, key });
+      if (retried) return this.#retryRedo(owner, retried, timestamp);
+      throw new StaleHistory("Load the latest history before adding this update.");
+    }
+    return { sequence, key: restored.key, change: restored.change, timestamp: restored.timestamp };
+  }
+
+  async #retryRedo(owner: Owner, existing: EventDocument<Owner>, timestamp: number) {
+    if (existing.kind !== "redo" || existing.timestamp !== timestamp) throw new UpdateKeyReused("This update identifier has already been used.");
+    const restored = await this.#moved(owner, existing.sequence, "redo");
+    return { sequence: existing.sequence, key: restored.key, change: restored.change, timestamp: restored.timestamp };
+  }
+
+  /** The stroke an undo removed, or a redo restored, is the top of that stack just before the event. */
+  async #moved(owner: Owner, sequence: number, kind: "undo" | "redo") {
+    const previous = await this.events.findOne({ owner, kind: "completion", sequence: { $lt: sequence } }, { sort: { sequence: -1 } });
+    const start = previous?.kind === "completion" ? previous.sequence : 0;
+    const stacks = await this.#folded(owner, start, sequence - 1);
+    const stroke = kind === "undo" ? stacks.effective.at(-1) : stacks.redo.at(-1);
+    if (!stroke) throw new UpdateKeyReused("This update identifier has already been used.");
+    return stroke;
+  }
+
+  async _history({ owner, after }: { owner: Owner; after: number }): Promise<{ start: number; tip: number; updates: RecordedUpdate[]; redo: number }> {
+    await this.#ready();
+    const { start, tip } = await this.#bounds(owner);
+    const { effective, redo } = await this.#folded(owner, start, tip);
+    return { start, tip, updates: effective.filter((update) => update.sequence > cursor(after)).slice(0, 50), redo: redo.length };
   }
 
   async _recordings({ owner, after }: { owner: Owner; after: number }): Promise<{ recordings: { index: number; count: number; createdAt: number }[] }> {
@@ -130,8 +234,7 @@ export class TimeLapsingConcept<Owner extends string> {
     await this.#ready();
     const recording = await this.events.findOne({ owner, kind: "completion", index });
     if (recording?.kind !== "completion") return { found: false, updates: [] };
-    const records = await this.events.find({ owner, sequence: { $gt: Math.max(cursor(after), recording.start), $lt: recording.sequence } })
-      .sort({ sequence: 1 }).limit(50).toArray();
-    return { found: true, updates: records.filter((record) => record.kind !== "completion").map(updateValue) };
+    const { effective } = await this.#folded(owner, recording.start, recording.sequence - 1);
+    return { found: true, updates: effective.filter((update) => update.sequence > cursor(after)).slice(0, 50) };
   }
 }
