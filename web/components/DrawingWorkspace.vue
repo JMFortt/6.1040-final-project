@@ -473,8 +473,8 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; background: #
 .color-row { display: flex; align-items: center; gap: 8px; }
 .color-picker { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 11px; }
 .eyedropper { margin-left: auto; min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 7px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--muted); }
-.eyedropper svg { display: block; width: 18.7px; height: 18.7px; fill: currentColor; stroke: none; }
-.eyedropper kbd { position: relative; top: 2px; font-family: monospace; font-size: 13px; line-height: 1; color: #8b9280; }
+.eyedropper svg { display: block; width: 15.9px; height: 15.9px; fill: currentColor; stroke: none; }
+.eyedropper kbd { font-family: monospace; font-size: 13px; line-height: 1; color: #8b9280; }
 .eyedropper:hover:not(:disabled) { background: #f0f2e9; color: var(--ink); }
 .eyedropper[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: white; }
 .eyedropper[aria-pressed="true"] kbd { color: white; }
