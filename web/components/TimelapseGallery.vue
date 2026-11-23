@@ -3,9 +3,10 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 import { parseStroke, type Stroke } from "../../src/drawing/stroke.ts";
 import { api } from "../client.ts";
 import TimelapsePlayer from "./TimelapsePlayer.vue";
+import ShareToggle from "./ShareToggle.vue";
 
 defineProps<{ username: string }>();
-const emit = defineEmits<{ practice: []; home: [] }>();
+const emit = defineEmits<{ practice: []; home: []; community: [] }>();
 const recordings = ref<{ index: number; count: number; createdAt: number }[]>([]);
 const loading = ref(false);
 const more = ref(true);
@@ -66,7 +67,7 @@ onBeforeUnmount(() => { disposed = true; request++; });
 
 <template>
   <main class="gallery">
-    <header><button class="home" @click="emit('home')">redraw<span>/</span></button><span>{{ username }}</span><button class="practice" @click="emit('practice')">Start Daily Practice</button></header>
+    <header><button class="home" @click="emit('home')">redraw<span>/</span></button><span>{{ username }}</span><button @click="emit('community')">Community</button><button class="practice" @click="emit('practice')">Start Daily Practice</button></header>
     <div class="content">
       <p class="eyebrow">YOUR PRACTICE ARCHIVE</p>
       <h1>Saved timelapses</h1>
@@ -83,6 +84,7 @@ onBeforeUnmount(() => { disposed = true; request++; });
         </nav>
         <section class="preview" aria-label="Selected timelapse">
           <h2 v-if="selected">Timelapse #{{ selected }}</h2>
+          <ShareToggle v-if="selected" :key="selected" :index="selected" />
           <p v-if="opening" role="status">Loading strokes…</p>
           <p v-else-if="playbackError" class="error" role="alert">{{ playbackError }} <button @click="open(selected!)">Retry</button></p>
           <TimelapsePlayer v-else-if="selected && strokes.length" :key="selected" :strokes="strokes" :index="selected" />

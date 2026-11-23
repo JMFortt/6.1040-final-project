@@ -6,6 +6,8 @@ import { composition as accounts } from "./compositions/reusable/accounts.ts";
 import { composition as commons } from "./compositions/reusable/commons.ts";
 import { composition as passwords } from "./compositions/reusable/passwords.ts";
 import { composition as canvas } from "./compositions/drawing/canvas.ts";
+import { composition as posts } from "./compositions/sharing/posts.ts";
+import { composition as people } from "./compositions/sharing/people.ts";
 
 export function assembleApplication(resources: { database: Db; commons: Provider }) {
   return assemble({
@@ -14,6 +16,7 @@ export function assembleApplication(resources: { database: Db; commons: Provider
     composition: {
       reusable: { accounts, passwords, commons },
       drawing: { canvas },
+      sharing: { posts, people },
     },
     redaction: { fields: ["attempt", "nonce", "state", "code"] },
     rawFaultReporter: ({ error }) => console.error(error),

@@ -18,4 +18,24 @@ instantiate Sessioning with
 
 instantiate TimeLapsing with
   Owner is Registering.User
+
+instantiate Posting with
+  Author is Registering.User
+  Work is TimelapseNumber
+
+instantiate Following with
+  Person is Registering.User
+
+instantiate Liking with
+  Person is Registering.User
+  Item is Posting.Post
+```
+
+Artists follow other registered users, and they like posts. Following and Liking store only identities. The [people composition](compositions/sharing/people.md) turns a typed username into a user, and the [sharing composition](compositions/sharing/posts.md) clears a post's likes when it is retracted.
+
+Posting shares completed timelapses. TimeLapsing numbers each artist's completed recordings from 1, so a post's author and work together name exactly one recording. Posting never reads TimeLapsing. The [sharing composition](compositions/sharing/posts.md) checks that the recording exists before publishing and reads its strokes for viewers.
+
+```types
+concrete TimelapseNumber
+  The index TimeLapsing gives one of an author's completed recordings. It is meaningful only together with that author.
 ```

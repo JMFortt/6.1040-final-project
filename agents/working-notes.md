@@ -2,6 +2,14 @@
 
 Unresolved on purpose. Add a dated note when the team decides. Do not edit `deliverables/` to close one of these unless a teammate asks.
 
+## 2026-11-22 — Sharing, following, and CoverageTracking design (Amina)
+
+Decided from this handbook at Amina's request (her MVP row is posting and browsing), and open to team review. The rationale lives in the new design files: [`Posting`](../design/concepts/Posting.md), [`Following`](../design/concepts/Following.md), [`Liking`](../design/concepts/Liking.md), [`sharing/posts.md`](../design/compositions/sharing/posts.md), [`sharing/people.md`](../design/compositions/sharing/people.md).
+
+- A post shares a completed timelapse until reference images are connected. Comments and reporting are deferred, because the ethics analysis ties them to moderation.
+- `scripts/seed.ts` (`bun scripts/seed.ts`) adds five development artists with password `redraw-seed-123`. Never seed a deployed database.
+- [`CoverageTracking`](../design/concepts/CoverageTracking.md) is a spec only, since Julia implements it at MVP. It keeps counts per artist and receives tags from a reaction, so it never reads ReferencePhotoBinning. That reaction needs submissions to record their reference image, which they do not yet.
+
 ## 2026-11-22 — numbered timelapse submissions
 
 The team requested a Submit button that preserves strokes as a numbered timelapse, plus a private page after login listing saved timelapses in order. The index temporarily identifies a submission until reference images are connected. Playback belongs to TimeLapsing's existing purpose. The team clarified that **submission clears the working canvas**. Preserve completed histories immutably, number them per owner starting at 1, and begin a blank working history only after successful submission. A submission marker in the same ordered event log makes preservation and the new history boundary one atomic write. Existing unsubmitted strokes remain the first working history. Browser playback is included; video file export remains deferred.

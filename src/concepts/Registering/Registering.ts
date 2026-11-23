@@ -56,6 +56,14 @@ export class RegisteringConcept {
     const found = await this.users.findOne({ _id: user });
     return found === null ? [] : [{ username: found.username }];
   }
+
+  async _search({ prefix }: { prefix: string }) {
+    if (prefix === "") return [];
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const found = await this.users.find({ username: { $regex: `^${escaped}`, $options: "i" } })
+      .collation({ locale: "en" }).sort({ username: 1 }).limit(10).toArray();
+    return found.map(({ _id, username }) => ({ user: _id, username }));
+  }
 }
 
 /** 11000 is the code MongoDB gives a write that breaks a unique index. */
