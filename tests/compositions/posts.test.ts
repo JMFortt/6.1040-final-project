@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { CANVAS_HEIGHT, CANVAS_WIDTH, RENDERER, type Stroke } from "../../src/drawing/stroke.ts";
 import { createApp, type RedrawApi } from "../app.ts";
 import { openTestDb, type TestDb } from "../test-db.ts";
+import { WEBP } from "../webp.ts";
 
 let database: TestDb;
 beforeAll(async () => { database = await openTestDb(); });
@@ -18,7 +19,7 @@ const stroke: Stroke = {
 async function submitTimelapse(api: RedrawApi, sequence: number) {
   const ink = { key: crypto.randomUUID(), sequence, timestamp: 1730000000000, change: JSON.stringify(stroke) };
   await api.canvas.stroke(ink);
-  await api.canvas.submit({ key: crypto.randomUUID(), sequence: sequence + 1 });
+  await api.canvas.submit({ key: crypto.randomUUID(), sequence: sequence + 1, image: WEBP });
   return ink;
 }
 
@@ -52,10 +53,12 @@ describe("Sharing timelapses", () => {
     if ("error" in replay) throw new Error(replay.error);
     expect(replay.found).toBe(true);
     expect(replay.updates).toEqual([ink]);
+    expect(await ben.posts.picture({ post: published.post })).toEqual({ found: true, image: WEBP });
 
     expect(await ben.posts.retract({ post: published.post })).toEqual({ error: "NOT_FOUND" });
     expect(await maya.posts.retract({ post: published.post })).toEqual({ post: published.post });
     expect(await ben.posts.timelapse({ post: published.post, after: 0 })).toEqual({ found: false, updates: [], createdAt: 0 });
+    expect(await ben.posts.picture({ post: published.post })).toEqual({ found: false, image: "" });
     const after = await ben.posts.feed({ before: "" });
     if ("error" in after) throw new Error(after.error);
     expect(after.page.posts.map(p => p.username)).toEqual(["ben"]);
@@ -69,6 +72,7 @@ describe("Sharing timelapses", () => {
     await submitTimelapse(maya, 1);
     expect(await maya.posts.publish({ index: 1, author: "ben" } as never)).toEqual({ error: "INVALID_REQUEST" });
     expect(await maya.posts.timelapse({ post: "0".repeat(24) as never, after: 0 })).toEqual({ found: false, updates: [], createdAt: 0 });
+    expect(await maya.posts.picture({ post: "0".repeat(24) as never })).toEqual({ found: false, image: "" });
     expect(await maya.posts.feed({ before: "nope" })).toEqual({ error: "INVALID_REQUEST" });
     expect(await maya.posts.publish({ index: 0 })).toEqual({ error: "INVALID_REQUEST" });
   });

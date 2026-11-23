@@ -15,7 +15,7 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
   const canUndo = computed(() => drawn.value > 0 || pending.value.length > 0);
   const canRedo = computed(() => redoCount.value > 0);
   const submitting = ref(false);
-  const submission = ref<{ key: string; sequence: number } | null>(null);
+  const submission = ref<{ key: string; sequence: number; image: string } | null>(null);
   const submissionPending = computed(() => submission.value !== null);
   const blocked = ref(false);
   const rejectedKey = ref<string | null>(null);
@@ -42,7 +42,7 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
       if (result.start !== start.value) {
         if (pending.value.length) {
           blocked.value = true;
-          throw new Error("Another tab submitted this drawing. Your unsaved strokes remain in this tab; they have not been moved into the next timelapse.");
+          throw new Error("Another tab submitted this artwork. Your unsaved strokes remain in this tab; they have not been moved into the next artwork.");
         }
         start.value = result.start;
         after = result.start;
@@ -102,7 +102,7 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
         if ("error" in result) {
           if (result.error === "INVALID_REQUEST") {
             rejectedKey.value = next.key;
-            throw new Error("A stroke was rejected and cannot be saved. Discard that stroke to continue saving the remaining drawing.");
+            throw new Error("A stroke was rejected and cannot be saved. Discard that stroke to continue saving the remaining artwork.");
           }
           if (result.error === "CONFLICT") {
             await fetchHistory();
@@ -199,7 +199,7 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
       }
       return false;
     } catch (cause) {
-      error.value = cause instanceof Error ? cause.message : "Could not update the drawing. Retry.";
+      error.value = cause instanceof Error ? cause.message : "Could not update the artwork. Retry.";
       return false;
     } finally {
       revising = false;
@@ -224,23 +224,27 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
     if (!error.value) await flush();
   }
 
-  async function submit(): Promise<number | null> {
+  async function submit(capture: () => Promise<string | null>): Promise<number | null> {
     if (submitting.value || saving.value || loading.value || pending.value.length || blocked.value || (!saved.value && !submission.value)) return null;
     submitting.value = true;
     error.value = "";
-    submission.value ??= { key: crypto.randomUUID(), sequence: sequence.value + 1 };
     try {
+      if (!submission.value) {
+        const image = await capture();
+        if (!image) throw new Error("Could not save the finished artwork. Retry submission.");
+        submission.value = { key: crypto.randomUUID(), sequence: sequence.value + 1, image };
+      }
       const result = await api.canvas.submit(submission.value);
       if ("error" in result) {
         if (result.error === "CONFLICT") {
           submission.value = null;
           await load();
-          throw new Error("The drawing changed in another tab. Review the current canvas before submitting again.");
+          throw new Error("The artwork changed in another tab. Review the current canvas before submitting again.");
         }
         if (result.error === "INVALID_REQUEST") submission.value = null;
         throw new Error(result.error === "UNAUTHORIZED"
           ? "Your session ended. Sign in again in another tab, then retry submission."
-          : "Could not confirm submission. Your drawing is still here. Retry submission.");
+          : "Could not confirm submission. Your artwork is still here. Retry submission.");
       }
       start.value = result.sequence;
       sequence.value = result.sequence;

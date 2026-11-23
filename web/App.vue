@@ -13,9 +13,10 @@ import { useSession } from "./composables/useSession.ts";
 
 const { me, checked, load, signOut } = useSession();
 const returningFromCommons = ref(window.location.pathname === "/auth/commons/callback");
-/** The canvas is a full-screen studio; every other signed-in page shares the nav bar. */
-const screen = ref<Page | "canvas">("home");
+const screen = ref<Page>("home");
 const welcomeOpen = ref(false);
+/** True while the canvas still has work that leaving would drop. */
+const drawBusy = ref(false);
 
 onMounted(() => {
   if (!returningFromCommons.value) void load();
@@ -31,8 +32,11 @@ async function leave() {
   screen.value = "home";
 }
 
-// Each page starts at its top.
-watch(screen, () => window.scrollTo(0, 0));
+// Each page starts at its top. Leaving Draw clears the lock the canvas was holding.
+watch(screen, (page) => {
+  window.scrollTo(0, 0);
+  if (page !== "draw") drawBusy.value = false;
+});
 
 // The welcome opens once for each account on this browser, and again from Help.
 // Remembering it in browser storage is a convenience: if storage is unavailable, it simply shows again.
@@ -51,14 +55,14 @@ function closeWelcome() {
 
 <template>
   <template v-if="me && !returningFromCommons">
-    <DrawingWorkspace v-if="screen === 'canvas'" :key="me.username" :username="me.username" @sign-out="leave" @timelapses="screen = 'timelapses'" @home="screen = 'home'" />
-    <template v-else>
-      <AppNav :current="screen" :username="me.username" @navigate="screen = $event" @practice="screen = 'canvas'" @help="welcomeOpen = true" @sign-out="leave" />
-      <HomeDashboard v-if="screen === 'home'" :key="me.username" :username="me.username" @practice="screen = 'canvas'" @timelapses="screen = 'timelapses'" @artists="screen = 'community'" />
-      <TimelapseGallery v-else-if="screen === 'timelapses'" :key="me.username" :username="me.username" @practice="screen = 'canvas'" />
+    <div class="app" :class="{ draw: screen === 'draw' }">
+      <AppNav :current="screen" :username="me.username" :locked="drawBusy" @navigate="screen = $event" @practice="screen = 'draw'" @help="welcomeOpen = true" @sign-out="leave" />
+      <DrawingWorkspace v-if="screen === 'draw'" :key="me.username" @timelapses="screen = 'timelapses'" @busy="drawBusy = $event" />
+      <HomeDashboard v-else-if="screen === 'home'" :key="me.username" :username="me.username" @practice="screen = 'draw'" @timelapses="screen = 'timelapses'" @artists="screen = 'community'" />
+      <TimelapseGallery v-else-if="screen === 'timelapses'" :key="me.username" :username="me.username" @practice="screen = 'draw'" />
       <CommunityPage v-else :key="me.username" />
-    </template>
-    <WelcomeDialog :open="welcomeOpen" @close="closeWelcome" @practice="screen = 'canvas'" />
+    </div>
+    <WelcomeDialog :open="welcomeOpen" @close="closeWelcome" @practice="screen = 'draw'" />
   </template>
   <main v-else class="page">
     <CommonsCallback v-if="returningFromCommons" @done="finishedCommons" />
@@ -74,6 +78,10 @@ function closeWelcome() {
 </template>
 
 <style scoped>
+.app.draw { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+@media (max-width: 760px) {
+  .app.draw { height: auto; min-height: 100dvh; overflow: visible; }
+}
 .page {
   display: grid;
   place-items: center;

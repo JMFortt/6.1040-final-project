@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { CANVAS_HEIGHT, CANVAS_WIDTH, RENDERER, type Stroke } from "../../src/drawing/stroke.ts";
 import { createApp } from "../app.ts";
 import { openTestDb, type TestDb } from "../test-db.ts";
+import { WEBP } from "../webp.ts";
 
 let database: TestDb;
 beforeAll(async () => { database = await openTestDb(); });
@@ -21,12 +22,13 @@ describe("Canvas", () => {
   test("submits numbered private timelapses, clears the draft, and preserves ordered ink and eraser playback", async () => {
     const { browser } = createApp(database.db);
     const maya = browser();
-    const submission = { key: crypto.randomUUID(), sequence: 3 };
+    const submission = { key: crypto.randomUUID(), sequence: 3, image: WEBP };
     expect(await maya.canvas.submit(submission)).toEqual({ error: "UNAUTHORIZED" });
     expect(await maya.canvas.timelapses({ after: 0 })).toEqual({ error: "UNAUTHORIZED" });
     expect(await maya.canvas.timelapse({ index: 1, after: 0 })).toEqual({ error: "UNAUTHORIZED" });
     await maya.auth.register({ username: "maya", password: "maya-password-123" });
-    expect(await maya.canvas.submit({ key: crypto.randomUUID(), sequence: 1 })).toEqual({ error: "INVALID_REQUEST" });
+    expect(await maya.canvas.submit({ key: crypto.randomUUID(), sequence: 1, image: WEBP })).toEqual({ error: "INVALID_REQUEST" });
+    expect(await maya.canvas.submit({ key: crypto.randomUUID(), sequence: 1, image: "not-a-webp" })).toEqual({ error: "INVALID_REQUEST" });
     const ink = request();
     const eraser = request({ ...stroke, tool: "eraser" }, 2);
     await maya.canvas.stroke(ink);
@@ -38,7 +40,8 @@ describe("Canvas", () => {
     expect(await maya.canvas.submit(submission)).toEqual({ index: 1, sequence: 3 });
     expect(await maya.canvas.timelapse({ index: 1, after: 0 })).toEqual({ found: true, updates: [ink, eraser] });
     expect(await maya.canvas.history({ after: 0 })).toEqual({ start: 3, tip: 4, updates: [next], redo: 0 });
-    expect(await maya.canvas.submit({ key: crypto.randomUUID(), sequence: 5 })).toEqual({ index: 2, sequence: 5 });
+    expect(await maya.canvas.submit({ key: crypto.randomUUID(), sequence: 5, image: WEBP })).toEqual({ index: 2, sequence: 5 });
+    expect(await maya.canvas.picture({ index: 1 })).toEqual({ found: true, image: WEBP });
     await maya.auth.logout();
     await maya.auth.login({ username: "maya", password: "maya-password-123" });
     const list = await maya.canvas.timelapses({ after: 0 });

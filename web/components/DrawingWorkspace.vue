@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_POINTS, parseStroke, RENDERER, type Stroke, type StrokePoint, type Tool } from "../../src/drawing/stroke.ts";
 import { StrokeRenderer } from "../drawing/renderer.ts";
 import { useCanvasHistory } from "../composables/useCanvasHistory.ts";
@@ -7,8 +7,7 @@ import ToolIcon from "./ToolIcon.vue";
 import ReferencePanel from "./ReferencePanel.vue";
 import { practiceReference } from "../drawing/reference.ts";
 
-defineProps<{ username: string }>();
-const emit = defineEmits<{ signOut: []; timelapses: []; home: [] }>();
+const emit = defineEmits<{ timelapses: []; busy: [locked: boolean] }>();
 const submittedIndex = ref<number | null>(null);
 const canvas = ref<HTMLCanvasElement>();
 const stage = ref<HTMLDivElement>();
@@ -70,11 +69,12 @@ const storage = useCanvasHistory(async (strokes, mode = "replace") => {
   } finally { if (!quiet) restoring.value = false; }
 });
 const { pending, saved, canUndo, canRedo, saving, loading, error, unsaved, submitting, submissionPending, blocked, rejectedKey } = storage;
-const navigationDisabled = computed(() => unsaved.value || drawing.value || finishing.value || saving.value || submitting.value || restoring.value || loading.value);
+const navigationDisabled = computed(() => unsaved.value || drawing.value || finishing.value || saving.value || submitting.value || blocked.value);
+watch(navigationDisabled, (locked) => emit("busy", locked), { immediate: true });
 const status = computed(() => loading.value || restoring.value ? "Restoring canvas…"
-  : submitting.value ? "Submitting timelapse…"
-  : error.value ? "Not saved" : saving.value || unsaved.value ? "Saving drawing…"
-  : saved.value ? "Drawing saved" : "Ready to draw");
+  : submitting.value ? "Submitting artwork…"
+  : error.value ? "Not saved" : saving.value || unsaved.value ? "Saving artwork…"
+  : saved.value ? "Artwork saved" : "Ready to draw");
 
 function chooseTool(next: Tool) {
   toolSize[tool.value] = size.value;
@@ -272,8 +272,9 @@ async function retry() {
 }
 
 async function submitDrawing() {
-  if (drawing.value || finishing.value || restoring.value || !ready.value) return;
-  const index = await storage.submit();
+  if (drawing.value || finishing.value || restoring.value || !ready.value || !renderer) return;
+  await finishPromise;
+  const index = await storage.submit(() => renderer!.exportWebp());
   if (index !== null) {
     submittedIndex.value = index;
     cursor.value = null;
@@ -340,14 +341,6 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="studio">
-    <header class="studio-header">
-      <a class="wordmark" href="/" aria-label="Redraw home" :aria-disabled="navigationDisabled" :title="navigationDisabled ? 'Finish drawing and saving before going home' : 'Redraw home'" @click.prevent="!navigationDisabled && emit('home')"><span class="brand-mark" aria-hidden="true">r.</span>redraw<span class="brand-dot">/</span></a>
-      <div class="document-title"><span class="document-mark" aria-hidden="true">▧</span><span>Your canvas<small>A little practice, every day.</small></span></div>
-      <div class="account"><span class="avatar">{{ username.charAt(0).toUpperCase() }}</span><span class="username">{{ username }}</span>
-        <button class="sign-out" :disabled="navigationDisabled" @click="emit('signOut')">Sign out</button>
-      </div>
-    </header>
-
     <aside class="tools-panel" aria-label="Drawing tools">
       <div class="history-actions" role="group" aria-label="Undo and redo">
         <button type="button" class="history" title="Undo (Ctrl+Z)" :disabled="!canUndo || !ready || drawing || finishing || restoring || panning" @click="reviseHistory('undo')">
@@ -409,10 +402,10 @@ onBeforeUnmount(() => {
       </div>
       </div>
       <div class="submission-bar">
-        <p v-if="submittedIndex" role="status">Timelapse #{{ submittedIndex }} saved. Your canvas is ready for a new drawing.</p>
-        <p v-else>Submit saves this drawing as a timelapse and starts a blank canvas.</p>
-        <div><button :disabled="navigationDisabled" @click="emit('timelapses')">View saved timelapses</button>
-          <button class="submit" :disabled="!ready || !saved || pending.length > 0 || saving || submitting || drawing || finishing || restoring || blocked" @click="submitDrawing">{{ submitting ? 'Submitting…' : submissionPending ? 'Retry submission' : 'Submit timelapse' }}</button></div>
+        <p v-if="submittedIndex" role="status">Artwork #{{ submittedIndex }} saved. Your canvas is ready for a new artwork.</p>
+        <p v-else>Submit saves this artwork and starts a blank canvas.</p>
+        <div><button :disabled="navigationDisabled" :title="navigationDisabled ? 'Finish saving this artwork before leaving.' : undefined" @click="emit('timelapses')">View saved artworks</button>
+          <button class="submit" :disabled="!ready || !saved || pending.length > 0 || saving || submitting || drawing || finishing || restoring || blocked" @click="submitDrawing">{{ submitting ? 'Submitting…' : submissionPending ? 'Retry submission' : 'Submit artwork' }}</button></div>
       </div>
     </section>
 
@@ -421,7 +414,7 @@ onBeforeUnmount(() => {
     <footer class="studio-footer">
       <div class="save-status" role="status" aria-live="polite">
         <span class="status-dot" :class="{ waiting: saving || loading || restoring, failed: !!error }" />
-        <span class="status-label"><span>{{ status }}</span><span class="status-sizer" aria-hidden="true">Submitting timelapse…</span><span class="status-sizer" aria-hidden="true">Restoring canvas…</span><span class="status-sizer" aria-hidden="true">Saving drawing…</span></span>
+        <span class="status-label"><span>{{ status }}</span><span class="status-sizer" aria-hidden="true">Submitting artwork…</span><span class="status-sizer" aria-hidden="true">Restoring canvas…</span><span class="status-sizer" aria-hidden="true">Saving artwork…</span></span>
       </div>
       <div class="privacy"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 9V6a4 4 0 0 1 8 0v3 M4 9h12v9H4Z" /></svg>Your canvas is private.</div>
     </footer>
@@ -429,22 +422,11 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.studio { --ink: #27372d; --muted: #70776e; --line: #dfe2d8; --accent: #465a3d; display: grid; grid-template: 78px minmax(0, 1fr) 38px / 248px minmax(0, 1fr); height: 100dvh; min-height: 620px; color: var(--ink); background: #f8f9f4; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; font-size: 13px; }
+.studio { --ink: #27372d; --muted: #70776e; --line: #dfe2d8; --accent: #465a3d; display: grid; grid-template: minmax(0, 1fr) 38px / 248px minmax(0, 1fr); flex: 1; min-height: 0; color: var(--ink); background: #f8f9f4; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; font-size: 13px; }
 button, select, input { font: inherit; }
 button, select { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }
 button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #567b8a; outline-offset: 4px; }
-.studio-header { grid-column: 1 / -1; display: flex; align-items: center; border-bottom: 1px solid var(--line); padding: 0 28px; gap: 40px; background: #fcfcf8; }
-.wordmark { display: flex; align-items: center; gap: 10px; width: 180px; flex-shrink: 0; font-size: 25px; letter-spacing: -1.3px; font-weight: 700; text-decoration: none; color: var(--ink); }
-.brand-mark { display: grid; place-items: center; width: 31px; height: 33px; border-radius: 9px 9px 9px 2px; background: var(--ink); color: #fafbf3; font-family: Georgia, serif; font-size: 28px; padding-bottom: 6px; }
-.brand-dot { color: #929a77; font-weight: 400; }
-.document-title { display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 600; }
-.document-mark { font-size: 26px; color: #89907e; }
-.document-title small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; margin-top: 3px; }
-.account { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.avatar { display: grid; place-items: center; width: 31px; height: 31px; background: #e7ebdf; border: 1px solid #d9dfd0; border-radius: 50%; font-size: 11px; font-weight: 600; }
-.username { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
-.sign-out { color: var(--muted); background: none; border: 0; border-left: 1px solid var(--line); padding: 8px 0 8px 15px; margin-left: 5px; font-size: 12px; }
 .tools-panel { display: flex; flex-direction: column; border-right: 1px solid var(--line); padding: 8px 20px 20px; overflow: auto; background: #fcfcf8; }
 .history-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 14px; }
 .history { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; border: 1px solid transparent; border-radius: 8px; padding: 10px 6px; background: transparent; color: var(--ink); }
@@ -522,6 +504,6 @@ input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
 .studio-footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; color: var(--muted); border-top: 1px solid var(--line); background: #fcfcf8; font-size: 10px; }
 @media (max-width: 760px) { .zoom-control button { min-width: 44px; min-height: 44px; } .eyedropper { min-width: 44px; height: 44px; } }
 @media (max-height: 780px) and (min-width: 761px) { .tool { padding-top: 9px; padding-bottom: 9px; } .settings { margin-top: 17px; padding-top: 18px; padding-bottom: 18px; } }
-@media (max-width: 1000px) { .studio { grid-template-columns: 218px minmax(0, 1fr); } .studio-header { gap: 15px; padding: 0 20px; } .wordmark { width: 170px; } .tools-panel { padding-left: 14px; padding-right: 14px; } .tool { gap: 8px; padding-left: 7px; padding-right: 7px; } .canvas-toolbar { padding-right: 16px; } }
-@media (max-width: 760px) { .studio { height: auto; min-height: 100dvh; grid-template: 64px auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .studio-header { padding: 0 16px; } .wordmark { width: auto; font-size: 23px; } .document-title, .username { display: none; } .account { gap: 8px; } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; } .history-actions { grid-column: 1 / -1; margin-bottom: 0; } .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 5px; } .tool { flex-direction: column; gap: 5px; padding: 8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .color-picker { margin-top: 0; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 12px 16px 0; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 315px); } .studio-footer { grid-row: 4; padding: 0 16px; } }
+@media (max-width: 1000px) { .studio { grid-template-columns: 218px minmax(0, 1fr); } .tools-panel { padding-left: 14px; padding-right: 14px; } .tool { gap: 8px; padding-left: 7px; padding-right: 7px; } .canvas-toolbar { padding-right: 16px; } }
+@media (max-width: 760px) { .studio { flex: none; grid-template: auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; } .history-actions { grid-column: 1 / -1; margin-bottom: 0; } .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 5px; } .tool { flex-direction: column; gap: 5px; padding: 8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .color-picker { margin-top: 0; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 12px 16px 0; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 360px); } .studio-footer { grid-row: 3; padding: 0 16px; } }
 </style>

@@ -41,4 +41,10 @@ sharing.posts.Feed at /posts/feed
 sharing.posts.Timelapse at /posts/timelapse
 ```
 
+[The finished picture](reaction:sharing.posts.Picture) reads Posting._get, then TimeLapsing._picture for that recording. The feed shows this stored image instead of replaying strokes. A viewer reaches it only through a post that exists. An unknown or retracted post, or a recording completed without a picture, answers `found: false` with an empty image. Watching the process still uses the stroke endpoint.
+
+```endpoints
+sharing.posts.Picture at /posts/picture
+```
+
 Deferred, and recorded in `agents/working-notes.md`: comments, reporting a post and turning posting off once nobody moderates, attaching posts to a reference image's board, and filtering by fundamental. Following is in the [people composition](people.md).

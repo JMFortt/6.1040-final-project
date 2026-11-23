@@ -12,6 +12,7 @@
 import { CANVAS_HEIGHT, CANVAS_WIDTH, RENDERER, type Stroke, type StrokePoint, type Tool } from "../src/drawing/stroke.ts";
 import { client, db } from "../src/db.ts";
 import { createApp, type RedrawApi } from "../tests/app.ts";
+import { WEBP } from "../tests/webp.ts";
 
 export const SEED_PASSWORD = "redraw-seed-123";
 
@@ -167,7 +168,7 @@ async function drawAndShare(api: RedrawApi, drawings: (() => Stroke[])[]) {
       await must("stroke", api.canvas.stroke({ key: crypto.randomUUID(), sequence, timestamp: started, change: JSON.stringify(value) }));
       sequence++;
     }
-    const { index } = await must("submit", api.canvas.submit({ key: crypto.randomUUID(), sequence }));
+    const { index } = await must("submit", api.canvas.submit({ key: crypto.randomUUID(), sequence, image: WEBP }));
     sequence++;
     posts.push((await must("publish", api.posts.publish({ index }))).post);
   }

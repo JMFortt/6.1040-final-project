@@ -24,12 +24,12 @@ function practice() {
   <dialog ref="dialog" class="welcome" aria-labelledby="welcome-title" @close="emit('close')">
     <p class="eyebrow">WELCOME TO REDRAW</p>
     <h2 id="welcome-title">A place to practice drawing fundamentals, a little every week.</h2>
-    <p>Redraw is for people who already draw and want steadier, more structured practice. It doesn't teach step by step or grade your drawings. It helps you show up regularly and learn from how others work.</p>
+    <p>Redraw is for people who already draw and want steadier, more structured practice. It doesn't teach step by step or grade your artworks. It helps you show up regularly and learn from how others work.</p>
     <ol>
       <li><strong>Start Daily Practice.</strong> Draw on your private canvas with ink, dry brush, graphite, and an eraser. Every stroke saves as you go.</li>
-      <li><strong>Submit your drawing.</strong> It becomes a timelapse you can replay stroke by stroke in My timelapses.</li>
-      <li><strong>Keep your weekly streak.</strong> Submit at least one drawing each week, Monday to Sunday (Eastern Time), and your streak grows.</li>
-      <li><strong>Share and learn.</strong> Share a timelapse with the community, and follow artists to see how they build up their work in your feed.</li>
+      <li><strong>Submit your artwork.</strong> You can play its timelapse stroke by stroke from My artworks.</li>
+      <li><strong>Keep your weekly streak.</strong> Submit at least one artwork each week, Monday to Sunday (Eastern Time), and your streak grows.</li>
+      <li><strong>Share and learn.</strong> Share an artwork with the community, and follow artists to see how they build up their work in your feed.</li>
     </ol>
     <p class="soon">Coming soon: reference photos chosen for specific fundamentals, such as perspective and lighting, and a view of which fundamentals you've practiced most and least.</p>
     <p class="again">You can reopen this anytime with <strong>Help</strong> at the top of the page.</p>

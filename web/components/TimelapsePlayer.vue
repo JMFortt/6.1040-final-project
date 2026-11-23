@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { Stroke } from "../../src/drawing/stroke.ts";
 import { StrokeRenderer } from "../drawing/renderer.ts";
 
-const props = defineProps<{ strokes: readonly Stroke[]; index: number }>();
+const props = withDefaults(defineProps<{ strokes: readonly Stroke[]; index: number; loading?: boolean }>(), { loading: false });
 const canvas = ref<HTMLCanvasElement>();
 const playing = ref(false);
 const preparing = ref(true);
@@ -18,6 +18,9 @@ const playable = computed(() => props.strokes.length > 0 && props.strokes.every(
 let resume: (() => void) | undefined;
 let frame = 0;
 let resolveFrame: ((time: number) => void) | undefined;
+let run = 0;
+let shown = 0;
+let showing: Promise<void> = Promise.resolve();
 
 function nextFrame() {
   return new Promise<number>((resolve) => {
@@ -28,8 +31,44 @@ function nextFrame() {
 
 // Replay every recorded point in order. Compress long pauses so practice sessions
 // remain watchable; speed changes affect playback only, never the stored events.
+function stopPlayback() {
+  run++;
+  resume?.();
+  cancelAnimationFrame(frame);
+  resolveFrame?.(performance.now());
+  renderer?.pause();
+  running.value = false;
+  playing.value = false;
+}
+
+function showFinished() {
+  const generation = ++shown;
+  if (props.loading) stopPlayback();
+  showing = showing.then(async () => {
+    if (generation !== shown || !renderer || stopped) return;
+    renderer.resume();
+    preparing.value = true;
+    if (props.loading) {
+      failure.value = "";
+      await renderer.restore([]);
+      return;
+    }
+    completed.value = false;
+    progress.value = 0;
+    if (!playable.value) {
+      failure.value = "This timelapse has no playable strokes.";
+      preparing.value = false;
+      return;
+    }
+    failure.value = "";
+    try { await renderer.restore(props.strokes); }
+    catch { if (generation === shown) failure.value = "Could not render this timelapse."; }
+    finally { if (generation === shown) preparing.value = false; }
+  }).catch(() => { if (generation === shown) preparing.value = false; });
+}
+
 async function play() {
-  if (preparing.value || stopped || !playable.value) return;
+  if (props.loading || preparing.value || stopped || !playable.value) return;
   if (running.value) {
     playing.value = !playing.value;
     if (playing.value) {
@@ -39,6 +78,8 @@ async function play() {
     } else renderer.pause();
     return;
   }
+  const current = ++run;
+  const live = () => current === run && !stopped;
   running.value = true;
   playing.value = true;
   completed.value = false;
@@ -47,10 +88,11 @@ async function play() {
   try {
     renderer.resume();
     await renderer.restore([]);
+    if (!live()) return;
     const total = props.strokes.reduce((count, stroke) => count + stroke.points.length, 0);
     let rendered = 0;
     for (const stroke of props.strokes) {
-      if (stopped) return;
+      if (!live()) return;
       renderer.begin(stroke);
       let point = 0;
       let elapsed = 0;
@@ -61,10 +103,10 @@ async function play() {
         if (!playing.value) {
           await new Promise<void>((resolve) => { resume = resolve; });
           previous = performance.now();
-          if (stopped) return;
+          if (!live()) return;
         }
         const now = await nextFrame();
-        if (stopped) return;
+        if (!live()) return;
         if (playing.value) {
           elapsed += Math.min(now - previous, 100) * speed.value;
           // Bound work per frame without dropping any points.
@@ -80,43 +122,41 @@ async function play() {
         previous = now;
       }
       await renderer.finish();
+      if (!live()) return;
     }
-    completed.value = true;
+    if (live()) completed.value = true;
   } catch {
-    failure.value = "Could not replay this timelapse. Try again.";
+    if (live()) failure.value = "Could not replay this timelapse. Try again.";
   } finally {
-    renderer.pause();
-    running.value = false;
-    playing.value = false;
+    if (live()) {
+      renderer.pause();
+      running.value = false;
+      playing.value = false;
+    }
   }
 }
 
 onMounted(async () => {
   renderer = new StrokeRenderer(canvas.value!);
-  if (!playable.value) {
-    failure.value = "This timelapse has no playable strokes.";
-    preparing.value = false;
-    return;
-  }
-  try { await renderer.restore(props.strokes); }
-  catch { failure.value = "Could not render this timelapse."; }
-  finally { preparing.value = false; }
+  await showFinished();
 });
+watch(() => [props.loading, props.strokes] as const, () => { void showFinished(); });
 onBeforeUnmount(() => {
   stopped = true;
-  resume?.();
-  cancelAnimationFrame(frame);
-  resolveFrame?.(performance.now());
+  stopPlayback();
   renderer?.dispose();
 });
 </script>
 
 <template>
   <section class="player" :aria-label="`Timelapse ${index} playback`">
-    <canvas ref="canvas" :aria-label="`Drawing from timelapse ${index}`" />
+    <div class="sheet">
+      <canvas ref="canvas" :aria-label="`Timelapse of artwork ${index}`" />
+      <p v-if="loading || preparing" class="loading" role="status">Loading strokes…</p>
+    </div>
     <p v-if="failure" role="alert">{{ failure }}</p>
     <div class="playback-controls">
-      <button :disabled="preparing || !playable" @click="play">{{ preparing ? 'Preparing…' : playing ? 'Pause' : running ? 'Resume' : completed ? 'Replay' : 'Play timelapse' }}</button>
+      <button class="transport" :disabled="loading || preparing || !playable" @click="play"><span>{{ playing ? 'Pause' : running ? 'Resume' : completed ? 'Replay' : 'Play timelapse' }}</span><span class="sizer" aria-hidden="true">Play timelapse</span></button>
       <label>Speed <select v-model.number="speed"><option :value="1">1×</option><option :value="4">4×</option><option :value="8">8×</option></select></label>
       <progress :value="progress" max="100" aria-label="Playback progress" />
       <span>{{ progress }}%</span>
@@ -126,10 +166,15 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .player { min-width: 0; }
+.sheet { position: relative; }
 canvas { display: block; width: 100%; aspect-ratio: 4 / 3; background: white; box-shadow: 0 2px 16px #25301d12; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; background: white; color: #70776e; font-size: 14px; }
 .playback-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 18px; font-size: 12px; }
 button, select { font: inherit; border: 1px solid #d5dcc7; border-radius: 7px; padding: 9px 12px; cursor: pointer; }
 button { background: #465a3d; color: white; min-height: 44px; }
+.transport { display: inline-grid; place-items: center; white-space: nowrap; }
+.transport > span { grid-area: 1 / 1; }
+.sizer { visibility: hidden; }
 button:disabled { opacity: .5; cursor: wait; }
 select { background: white; color: #27372d; }
 label { display: flex; align-items: center; gap: 8px; }

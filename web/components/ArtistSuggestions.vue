@@ -15,7 +15,7 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
       <ArtistAvatar :username="artist.username" :size="variant === 'cards' ? 56 : 36" />
       <div class="who">
         <strong>{{ artist.username }}</strong>
-        <span>{{ plural(artist.posts, "drawing") }} · {{ plural(artist.followers, "follower") }}</span>
+        <span>{{ plural(artist.posts, "artwork") }} · {{ plural(artist.followers, "follower") }}</span>
       </div>
       <button class="follow" :class="{ on: isFollowing(artist.username) }" :disabled="isPending(artist.username)" :aria-pressed="isFollowing(artist.username)" @click="toggle(artist.username)">
         {{ isFollowing(artist.username) ? "Following" : "Follow" }}

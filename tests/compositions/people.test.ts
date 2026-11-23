@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { CANVAS_HEIGHT, CANVAS_WIDTH, RENDERER, type Stroke } from "../../src/drawing/stroke.ts";
 import { createApp, type RedrawApi } from "../app.ts";
 import { openTestDb, type TestDb } from "../test-db.ts";
+import { WEBP } from "../webp.ts";
 
 let database: TestDb;
 beforeAll(async () => { database = await openTestDb(); });
@@ -16,7 +17,7 @@ const stroke: Stroke = {
 async function artistWithPost(api: RedrawApi, username: string) {
   await api.auth.register({ username, password: `${username}-password-123` });
   await api.canvas.stroke({ key: crypto.randomUUID(), sequence: 1, timestamp: 1, change: JSON.stringify(stroke) });
-  await api.canvas.submit({ key: crypto.randomUUID(), sequence: 2 });
+  await api.canvas.submit({ key: crypto.randomUUID(), sequence: 2, image: WEBP });
   const published = await api.posts.publish({ index: 1 });
   if ("error" in published) throw new Error(published.error);
   return published.post;
