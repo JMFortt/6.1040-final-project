@@ -29,7 +29,12 @@ instantiate Following with
 instantiate Liking with
   Person is Registering.User
   Item is Posting.Post
+
+instantiate StreakTracking with
+  User is Registering.User
 ```
+
+StreakTracking counts consecutive periods without knowing what a period is. The [streaks composition](compositions/practice/streaks.md) numbers Eastern Time weeks and passes the current one in.
 
 Artists follow other registered users, and they like posts. Following and Liking store only identities. The [people composition](compositions/sharing/people.md) turns a typed username into a user, and the [sharing composition](compositions/sharing/posts.md) clears a post's likes when it is retracted.
 

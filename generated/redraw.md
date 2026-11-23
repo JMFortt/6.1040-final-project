@@ -160,6 +160,27 @@ Defined in [Sessioning](../design/concepts/Sessioning.md), line 1.
 - `Sessioning` — instance of `Sessioning` — [Application types](../design/types.md), line 16.
   - `Subject` is `Registering.User` — [Application types](../design/types.md), line 17.
 
+### StreakTracking
+
+Defined in [StreakTracking](../design/concepts/StreakTracking.md), line 1.
+
+#### Actions
+
+- `engage(user: User, period: Number) : returns (streakCount: Number)`
+  - Refuses `INVALID_PERIOD`: The period is not valid.
+  - Refuses `STALE_PERIOD`: This period has already passed.
+- `expire(user: User, period: Number) : returns (streakCount: Number)`
+  - Refuses `INVALID_PERIOD`: The period is not valid.
+
+#### Queries
+
+- `_getStreak(user: User) : one (streakCount: Number)`
+
+#### Instances
+
+- `StreakTracking` — instance of `StreakTracking` — [Application types](../design/types.md), line 33.
+  - `User` is `Registering.User` — [Application types](../design/types.md), line 34.
+
 ### TimeLapsing
 
 Defined in [TimeLapsing](../design/concepts/TimeLapsing.md), line 1.
@@ -191,7 +212,11 @@ Defined in [TimeLapsing](../design/concepts/TimeLapsing.md), line 1.
 
 Concrete types:
 
-- `TimelapseNumber` — [Application types](../design/types.md), line 39.
+- `TimelapseNumber` — [Application types](../design/types.md), line 44.
+
+## Computations
+
+- `easternWeek(instant: DateTime) : Number` — [Weekly streaks](../design/compositions/practice/streaks.md), line 6.
 
 ## Formers
 
@@ -457,6 +482,61 @@ where
   TimeLapsing._recordings (after, owner) has (recordings)
 then
   RequestBoundary.respond (recordings, requestId)
+```
+
+### practice.streaks.Current
+
+Authored path: `practice.streaks.Current`.
+- Covered by [Weekly streaks](../design/compositions/practice/streaks.md), line 12.
+- Covered by [Weekly streaks](../design/compositions/practice/streaks.md), line 15.
+
+```reaction
+when RequestBoundary.request (path: "/streaks/current", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.streaks.Current#2
+
+Authored path: `practice.streaks.Current`.
+- Covered by [Weekly streaks](../design/compositions/practice/streaks.md), line 12.
+- Covered by [Weekly streaks](../design/compositions/practice/streaks.md), line 15.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by practice.streaks.Current
+where
+  instant is the current flow's instant
+  week is easternWeek (instant)
+then
+  StreakTracking.expire (period: week, user)
+```
+
+### practice.streaks.Current#3
+
+Authored path: `practice.streaks.Current`.
+- Covered by [Weekly streaks](../design/compositions/practice/streaks.md), line 12.
+- Covered by [Weekly streaks](../design/compositions/practice/streaks.md), line 15.
+
+```reaction
+when StreakTracking.expire (period: week, user, streakCount), asked by practice.streaks.Current#2
+where
+  earlier, RequestBoundary.request (path: "/streaks/current", requestId, session)
+then
+  RequestBoundary.respond (requestId, streakCount)
+```
+
+### practice.streaks.SubmitEngagesStreak
+
+Authored path: `practice.streaks.SubmitEngagesStreak`.
+- Covered by [Weekly streaks](../design/compositions/practice/streaks.md), line 10.
+
+```reaction
+when TimeLapsing.complete (owner)
+where
+  instant is the current flow's instant
+  week is easternWeek (instant)
+then
+  StreakTracking.engage (period: week, user: owner)
 ```
 
 ### reusable.accounts.identifying.Me
@@ -1341,3 +1421,4 @@ not listed here have no explicit input contract.
 - `/posts/status` — requires `index`, `session`
 - `/posts/timelapse` — requires `after`, `post`, `session`
 - `/posts/unlike` — requires `post`, `session`
+- `/streaks/current` — requires `session`

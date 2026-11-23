@@ -4,10 +4,11 @@ Unresolved on purpose. Add a dated note when the team decides. Do not edit `deli
 
 ## 2026-11-23 — StreakTracking design (Julia)
 
-Julia chose a **weekly** streak, with weeks running Monday 00:00 to Sunday 24:00 America/New_York. [`StreakTracking`](../design/concepts/StreakTracking.md) stays close to the F3 deliverable. The caller passes a period number, so the concept stays general, and the composition computes the Eastern Time week. Spec only: not yet instantiated in `design/types.md` or implemented.
+Julia chose a **weekly** streak, with weeks running Monday 00:00 to Sunday 24:00 America/New_York. [`StreakTracking`](../design/concepts/StreakTracking.md) stays close to the F3 deliverable. The caller passes a period number, so the concept stays general, and the composition computes the Eastern Time week. Implemented on 2026-11-23 with the [streaks composition](../design/compositions/practice/streaks.md). There is no frontend yet; the dashboard is a usability-checkpoint item.
 
-- The composition converts the current time to a week number using the America/New_York time zone, not a fixed offset, so weeks stay aligned across daylight saving changes.
-- Submitting a drawing calls `engage`. Nothing in the sync engine runs on a timer, so an endpoint that shows the streak calls `expire` for the current week before `_getStreak`.
+- The composition binds the flow's instant with `now(instant)` and converts it with the registered `easternWeek` computation (`src/practice/week.ts`), which uses the America/New_York calendar date, so weeks stay aligned across daylight saving changes. A computation must be declared in a `computations` fence in a registered design document, or `generate` fails with `MISSING_COVERAGE`.
+- A reaction on `TimeLapsing.complete` calls `engage`. Nothing in the sync engine runs on a timer, so `/streaks/current` calls `expire` for the current week and responds with the count it returns.
+- `assembleApplication` and the test helper `createApp` accept an optional `clock` so that tests can fix the current week.
 - Differences from the F3 deliverable, which stays unchanged:
   - Periods replace days and are passed in, so `lastActiveDay` became `lastActivePeriod`.
   - The actions return the streak count and gain the refusals the executable format needs.

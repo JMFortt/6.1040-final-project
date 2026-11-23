@@ -126,7 +126,7 @@ export type RedrawWire = {
       "index": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["index"]>>;
       "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["sequence"]>>;
     };
-    error: { error: AppWideError | "EMPTY_HISTORY" | "INVALID_COMPLETION" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "STALE_HISTORY" | "UPDATE_KEY_REUSED" };
+    error: { error: AppWideError | "EMPTY_HISTORY" | "INVALID_COMPLETION" | "INVALID_INPUT" | "INVALID_PERIOD" | "NOT_SIGNED_IN" | "STALE_HISTORY" | "STALE_PERIOD" | "UPDATE_KEY_REUSED" };
   };
   "/canvas/timelapse": {
     input: {
@@ -295,6 +295,15 @@ export type RedrawWire = {
     output: Record<string, never>;
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_LIKED" | "NOT_SIGNED_IN" };
   };
+  "/streaks/current": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "streakCount": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["StreakTracking"]["expire"]>>, ["streakCount"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_PERIOD" | "NOT_SIGNED_IN" };
+  };
 };
 
 export type HttpAppWideError = never;
@@ -391,7 +400,7 @@ export type RedrawWireHttp = {
       "index": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["index"]>>;
       "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["sequence"]>>;
     };
-    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "UNAUTHORIZED" };
+    error: { error: HttpAppWideError | "CONFLICT" | "INTERNAL_ERROR" | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
   "/canvas/timelapse": {
     input: {
@@ -543,5 +552,12 @@ export type RedrawWireHttp = {
     };
     output: Record<string, never>;
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/streaks/current": {
+    input: Record<string, never>;
+    output: {
+      "streakCount": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["StreakTracking"]["expire"]>>, ["streakCount"]>>;
+    };
+    error: { error: HttpAppWideError | "INTERNAL_ERROR" | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
 };
