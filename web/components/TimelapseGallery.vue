@@ -76,7 +76,7 @@ onBeforeUnmount(() => { disposed = true; request++; });
       <div v-else class="archive">
         <nav aria-label="Saved timelapses">
           <ol>
-            <li v-for="recording in recordings" :key="recording.index"><button class="recording" :class="{ selected: selected === recording.index }" :aria-pressed="selected === recording.index" @click="open(recording.index)"><strong>Timelapse #{{ recording.index }}</strong><span>{{ recording.count }} stroke{{ recording.count === 1 ? '' : 's' }}</span><time :datetime="new Date(recording.createdAt).toISOString()">{{ date(recording.createdAt) }}</time></button></li>
+            <li v-for="recording in recordings" :key="recording.index"><button class="recording" :class="{ selected: selected === recording.index }" :aria-pressed="selected === recording.index" @click="open(recording.index)"><strong>Timelapse #{{ recording.index }}</strong><time :datetime="new Date(recording.createdAt).toISOString()">{{ date(recording.createdAt) }}</time></button></li>
           </ol>
           <p v-if="loading" role="status">Loading timelapses…</p>
           <button v-else-if="more && !error" @click="loadMore">Load more</button>
@@ -110,7 +110,7 @@ ol { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 12px; }
 .recording { display: grid; width: 100%; gap: 7px; text-align: left; padding: 16px; }
 .recording.selected { border-color: #465a3d; background: #e9eddf; }
 .recording strong { font-size: 14px; }
-.recording span, time { font-size: 11px; color: #70776e; }
+.recording time { font-size: 11px; color: #70776e; }
 .preview { min-width: 0; }
 .empty { margin-top: 32px; padding: 36px; border: 1px dashed #bdc6b2; border-radius: 12px; }
 .error { color: #88492d; }
