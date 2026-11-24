@@ -155,7 +155,7 @@ export type RedrawWire = {
       "index": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["index"]>>;
       "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["complete"]>>, ["sequence"]>>;
     };
-    error: { error: AppWideError | "EMPTY_HISTORY" | "INVALID_COMPLETION" | "INVALID_INPUT" | "INVALID_PERIOD" | "NOT_SIGNED_IN" | "STALE_HISTORY" | "STALE_PERIOD" | "UPDATE_KEY_REUSED" };
+    error: { error: AppWideError | "EMPTY_HISTORY" | "INVALID_COMPLETION" | "INVALID_INPUT" | "INVALID_PERIOD" | "NOT_SIGNED_IN" | "NO_FUNDAMENTALS" | "PRACTICE_KEY_REUSED" | "STALE_HISTORY" | "STALE_PERIOD" | "UPDATE_KEY_REUSED" };
   };
   "/canvas/timelapse": {
     input: {
@@ -191,6 +191,20 @@ export type RedrawWire = {
       "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>>, ["sequence"]>>;
     };
     error: { error: AppWideError | "INVALID_INPUT" | "INVALID_UPDATE" | "NOTHING_TO_UNDO" | "NOT_SIGNED_IN" | "STALE_HISTORY" | "UPDATE_KEY_REUSED" };
+  };
+  "/coverage/current": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "coverage": {
+        "rows": {
+          "count": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["CoverageTracking"]["_coverage"]>>>, ["count"]>>;
+          "fundamental": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["CoverageTracking"]["_coverage"]>>>, ["fundamental"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
   };
   "/people/follow": {
     input: {
@@ -632,6 +646,18 @@ export type RedrawWireHttp = {
       "sequence": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TimeLapsing"]["undo"]>>, ["sequence"]>>;
     };
     error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/coverage/current": {
+    input: Record<string, never>;
+    output: {
+      "coverage": {
+        "rows": {
+          "count": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["CoverageTracking"]["_coverage"]>>>, ["count"]>>;
+          "fundamental": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["CoverageTracking"]["_coverage"]>>>, ["fundamental"]>>;
+        }[];
+      };
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
   "/people/follow": {
     input: {

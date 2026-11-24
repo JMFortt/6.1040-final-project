@@ -40,4 +40,4 @@ practice.references.Catalog at /references/catalog
 practice.references.Request at /references/request
 ```
 
-Recording a finished drawing against one of these photos stays deferred. TimeLapsing.complete does not name a reference image, so a reaction cannot yet pass that image's tags to CoverageTracking.record.
+A saved drawing counts toward coverage of the fundamental the artist chose, not every tag on the photo. The [drawing session](practicing.md) records it from the open practice, and [coverage](coverage.md) reports it.

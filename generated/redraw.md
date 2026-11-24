@@ -312,8 +312,10 @@ Concrete types:
 
 ## Computations
 
+- `coverageFundamentals() : Set<FundamentalName>` — [Fundamentals coverage](../design/compositions/practice/coverage.md), line 6.
 - `easternDay(instant: DateTime) : Number` — [Reference bank](../design/compositions/practice/references.md), line 4.
 - `easternWeek(instant: DateTime) : Number` — [Weekly streaks](../design/compositions/practice/streaks.md), line 6.
+- `fundamentalSet(fundamental: FundamentalName) : Set<FundamentalName>` — [Drawing session](../design/compositions/practice/practicing.md), line 10.
 
 ## Formers
 
@@ -358,6 +360,20 @@ Former "artists to suggest to (viewer)" — inputs (viewer); bindings (author, p
         latest
         posts
         username
+```
+
+### the coverage of (artist) over (fundamentals)
+
+Authored path: `practice.coverage.CoverageRows`.
+- Covered by [Fundamentals coverage](../design/compositions/practice/coverage.md), line 10.
+
+```former
+Former "the coverage of (artist) over (fundamentals)" — inputs (artist, fundamentals); bindings (fundamental, count); promises exactly one record — forms:
+  a record of
+    rows: each CoverageTracking._coverage (artist, fundamentals) has (count, fundamental)
+      form a record of
+        count
+        fundamental
 ```
 
 ### the feed page before (before) for (viewer)
@@ -688,11 +704,38 @@ then
   RequestBoundary.respond (removed, requestId, sequence: saved)
 ```
 
+### practice.coverage.Current
+
+Authored path: `practice.coverage.Current`.
+- Covered by [Fundamentals coverage](../design/compositions/practice/coverage.md), line 10.
+- Covered by [Fundamentals coverage](../design/compositions/practice/coverage.md), line 13.
+
+```reaction
+when RequestBoundary.request (path: "/coverage/current", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.coverage.Current#2
+
+Authored path: `practice.coverage.Current`.
+- Covered by [Fundamentals coverage](../design/compositions/practice/coverage.md), line 10.
+- Covered by [Fundamentals coverage](../design/compositions/practice/coverage.md), line 13.
+
+```reaction
+when Sessioning.use (session, subject: artist), asked by practice.coverage.Current
+where
+  fundamentals is coverageFundamentals
+  earlier, RequestBoundary.request (path: "/coverage/current", requestId, session)
+then
+  RequestBoundary.respond (coverage: former "the coverage of (artist) over (fundamentals)" with (artist, fundamentals), requestId)
+```
+
 ### practice.practicing.Begin
 
 Authored path: `practice.practicing.Begin`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 18.
 
 ```reaction
 when RequestBoundary.request (fundamental, path: "/practice/begin", requestId, session)
@@ -704,7 +747,7 @@ then
 
 Authored path: `practice.practicing.Begin`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 18.
 
 ```reaction
 when Sessioning.use (session, subject: artist), asked by practice.practicing.Begin
@@ -720,7 +763,7 @@ then
 
 Authored path: `practice.practicing.Begin`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 18.
 
 ```reaction
 when ReferencePhotoBinning.request (day, fundamental, credit, image, source), asked by practice.practicing.Begin#2
@@ -734,7 +777,7 @@ then
 
 Authored path: `practice.practicing.Begin`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 18.
 
 ```reaction
 when Practicing.begin (artist, credit, fundamental, image, source, started, startedAt), asked by practice.practicing.Begin#3
@@ -748,7 +791,7 @@ then
 
 Authored path: `practice.practicing.Current`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 12.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 17.
 
 ```reaction
 when RequestBoundary.request (path: "/practice/current", requestId, session)
@@ -760,7 +803,7 @@ then
 
 Authored path: `practice.practicing.Current`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 12.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 17.
 
 ```reaction
 when Sessioning.use (session, subject: artist), asked by practice.practicing.Current
@@ -775,7 +818,7 @@ then
 
 Authored path: `practice.practicing.Discard`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 20.
 
 ```reaction
 when RequestBoundary.request (path: "/practice/discard", requestId, session)
@@ -787,7 +830,7 @@ then
 
 Authored path: `practice.practicing.Discard`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 20.
 
 ```reaction
 when Sessioning.use (session, subject: artist), asked by practice.practicing.Discard
@@ -799,7 +842,7 @@ then
 
 Authored path: `practice.practicing.Discard`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 20.
 
 ```reaction
 when TimeLapsing.abandon (owner: artist), asked by practice.practicing.Discard#2
@@ -811,7 +854,7 @@ then
 
 Authored path: `practice.practicing.Discard`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 20.
 
 ```reaction
 when Practicing.end (artist), asked by practice.practicing.Discard#3
@@ -825,7 +868,7 @@ then
 
 Authored path: `practice.practicing.Start`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 5.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 14.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 19.
 
 ```reaction
 when RequestBoundary.request (path: "/practice/start", requestId, session)
@@ -837,7 +880,7 @@ then
 
 Authored path: `practice.practicing.Start`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 5.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 14.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 19.
 
 ```reaction
 when Sessioning.use (session, subject: artist), asked by practice.practicing.Start
@@ -851,7 +894,7 @@ then
 
 Authored path: `practice.practicing.Start`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 5.
-- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 14.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 19.
 
 ```reaction
 when Practicing.start (artist, instant, startedAt), asked by practice.practicing.Start#2
@@ -861,13 +904,27 @@ then
   RequestBoundary.respond (requestId, startedAt)
 ```
 
-### practice.practicing.SubmitEndsPractice
+### practice.practicing.SubmitRecordsPractice
 
-Authored path: `practice.practicing.SubmitEndsPractice`.
+Authored path: `practice.practicing.SubmitRecordsPractice`.
 - Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
 
 ```reaction
-when TimeLapsing.complete (owner)
+when TimeLapsing.complete (key, owner)
+where
+  Practicing._current (artist: owner) has (fundamental, practicing: true)
+  fundamentals is fundamentalSet (fundamental)
+then
+  CoverageTracking.record (artist: owner, fundamentals, key)
+```
+
+### practice.practicing.SubmitRecordsPractice#2
+
+Authored path: `practice.practicing.SubmitRecordsPractice`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+
+```reaction
+when CoverageTracking.record (artist: owner, fundamentals, key), asked by practice.practicing.SubmitRecordsPractice
 then
   Practicing.end (artist: owner)
 ```
@@ -2132,6 +2189,7 @@ not listed here have no explicit input contract.
 - `/canvas/timelapse` — requires `after`, `index`, `session`
 - `/canvas/timelapses` — requires `after`, `session`
 - `/canvas/undo` — requires `key`, `sequence`, `session`, `timestamp`
+- `/coverage/current` — requires `session`
 - `/people/follow` — requires `session`, `username`
 - `/people/following` — requires `session`
 - `/people/search` — requires `prefix`, `session`

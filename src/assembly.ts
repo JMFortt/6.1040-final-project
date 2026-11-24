@@ -11,6 +11,7 @@ import { composition as people } from "./compositions/sharing/people.ts";
 import { composition as streaks } from "./compositions/practice/streaks.ts";
 import { composition as references } from "./compositions/practice/references.ts";
 import { composition as practicing } from "./compositions/practice/practicing.ts";
+import { composition as coverage } from "./compositions/practice/coverage.ts";
 
 /** `clock` defaults to the system clock; tests pass a fixed one to control the current week. */
 export function assembleApplication(resources: { database: Db; commons: Provider }, clock?: () => Date) {
@@ -21,7 +22,7 @@ export function assembleApplication(resources: { database: Db; commons: Provider
       reusable: { accounts, passwords, commons },
       drawing: { canvas },
       sharing: { posts, people },
-      practice: { streaks, references, practicing },
+      practice: { streaks, references, practicing, coverage },
     },
     ...(clock ? { clock } : {}),
     redaction: { fields: ["attempt", "nonce", "state", "code"] },

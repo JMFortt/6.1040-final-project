@@ -7,7 +7,7 @@ import { endpoint, receive, respond, type EndpointValidator } from "@mit-sdg/syn
 import { compute, now, reaction, when, where } from "@mit-sdg/sync-engine/language";
 import { computations, concepts } from "../../concepts.ts";
 
-const { Practicing, ReferencePhotoBinning, Sessioning, TimeLapsing } = concepts;
+const { CoverageTracking, Practicing, ReferencePhotoBinning, Sessioning, TimeLapsing } = concepts;
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const session = (value: unknown) => value === null || typeof value === "string";
@@ -47,9 +47,18 @@ const Discard = endpoint("/practice/discard", ({ session, artist }) => receive({
   .then(respond({})),
 { validators: { input: sessionInput } });
 
-/** Saving the artwork ends the practice, so the next visit starts from the fundamental list. */
-const SubmitEndsPractice = reaction(({ owner }) =>
-  when(TimeLapsing.complete({ owner }).responds({}))
+/**
+ * Saving the artwork counts the practice toward the chosen fundamental, then ends the practice,
+ * so the next visit starts from the fundamental list. The attempt is read before it ends, and the
+ * completion key makes a retried submission count once.
+ */
+const SubmitRecordsPractice = reaction(({ owner, key, fundamental, fundamentals }) =>
+  when(TimeLapsing.complete({ owner, key }).responds({}))
+    .where(
+      Practicing._current({ artist: owner }).is({ practicing: true, fundamental }),
+      compute(computations.fundamentalSet, { fundamental }, fundamentals),
+    )
+    .then(CoverageTracking.record({ artist: owner, key, fundamentals }).responds({}))
     .then(Practicing.end({ artist: owner })),
 );
 
@@ -60,4 +69,4 @@ export const practicingHttp = {
   },
 } as const;
 
-export const composition = { Current, Begin, Start, Discard, SubmitEndsPractice };
+export const composition = { Current, Begin, Start, Discard, SubmitRecordsPractice };

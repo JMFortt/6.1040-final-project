@@ -2,7 +2,7 @@
 import { onMounted } from "vue";
 import { useCoverage } from "../composables/useCoverage.ts";
 
-const { rows, sample, loading, error, max, neglected, load } = useCoverage();
+const { rows, loading, error, max, neglected, practicedAny, load } = useCoverage();
 onMounted(load);
 
 const list = (names: string[]) => names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
@@ -12,7 +12,6 @@ const list = (names: string[]) => names.length <= 1 ? names.join("") : `${names.
   <section class="coverage" aria-labelledby="coverage-title">
     <div class="head">
       <h2 id="coverage-title" class="label">Fundamentals</h2>
-      <span v-if="sample" class="badge" title="Example numbers. Your real counts appear once practice references are connected.">Sample data</span>
     </div>
     <p v-if="loading && !rows.length" role="status" class="status">Loading…</p>
     <p v-else-if="error" class="error" role="alert">{{ error }} <button class="retry" @click="load">Retry</button></p>
@@ -24,7 +23,8 @@ const list = (names: string[]) => names.length <= 1 ? names.join("") : `${names.
           <span class="count">{{ row.count }}<span class="visually-hidden"> artwork{{ row.count === 1 ? "" : "s" }}</span></span>
         </li>
       </ul>
-      <p v-if="neglected.length" class="hint">Least practiced: <strong>{{ list(neglected) }}</strong></p>
+      <p v-if="!practicedAny" class="hint">Save an artwork to count your first practice.</p>
+      <p v-else-if="neglected.length" class="hint">Least practiced: <strong>{{ list(neglected) }}</strong></p>
     </template>
   </section>
 </template>
@@ -33,7 +33,6 @@ const list = (names: string[]) => names.length <= 1 ? names.join("") : `${names.
 .coverage { padding: 20px 24px; background: white; border: 1px solid #dfe2d8; border-radius: 16px; display: grid; gap: 12px; }
 .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .label { margin: 0; font-family: Georgia, serif; font-weight: 400; font-size: 20px; color: #27372d; }
-.badge { font-family: Georgia, serif; font-weight: 400; font-size: 13px; padding: 3px 10px; border-radius: 999px; background: #f6ecd9; color: #7a5a1e; border: 1px solid #e8d4ac; }
 ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 li { display: grid; grid-template-columns: 92px minmax(60px, 1fr) 24px; align-items: center; gap: 10px; font-size: 13px; }
 .name { text-transform: capitalize; color: #27372d; }

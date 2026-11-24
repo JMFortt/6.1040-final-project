@@ -46,11 +46,15 @@ Julia chose a **weekly** streak, with weeks running Monday 00:00 to Sunday 24:00
   - `_getStreak` returns 0 for a user who has never engaged.
 - The checker rejects a `## Notes` section in concept specs. Record design rationale here or in the composition's design file.
 
-The concept from Amina's spec is implemented and tested on its own (`src/concepts/CoverageTracking/`). It is instantiated with `Fundamental is FundamentalName`, a temporary concrete type for plain fundamental names. Rebind it to ReferencePhotoBinning's tag type when that concept exists.
+The concept from Amina's spec is implemented (`src/concepts/CoverageTracking/`). It and ReferencePhotoBinning share the `FundamentalName` concrete type.
 
 - Each practice is one document holding its distinct fundamentals. That array realizes the spec's Exercises set, so recording a practice is one atomic insert.
-- Still open: no reaction calls `record`, and no endpoint reads `_coverage`. Recording needs submissions to name their reference image and ReferencePhotoBinning to supply its fundamentals. Reading needs the list of fundamentals to report, which should also come from ReferencePhotoBinning. A temporary hard-coded list would be a team decision.
-- Home shows a Fundamentals card beside the streak (`web/components/CoverageCard.vue`). Until a coverage endpoint exists, it shows **sample data** from `web/composables/useCoverage.ts`, with a visible "Sample data" badge. Its fundamentals list is the one named in the F3 problem framing. Before release, remove `SAMPLE` and have `load` call the coverage endpoint.
+- Wired up on 2026-11-23. Julia decided:
+  - **Only the chosen fundamental counts**, not every tag on the reference photo.
+  - **Coverage reports a fixed list**: anatomy, color, form, lighting, perspective (`src/practice/fundamentals.ts`).
+  - Lucy's `SubmitEndsPractice` became **`SubmitRecordsPractice`**, one ordered chain: read `Practicing._current`, then `CoverageTracking.record` keyed by the completion key, then `Practicing.end`. Separate reactions would have raced to read the attempt before it ended.
+- `/coverage/current` returns one row per fundamental, least practiced first. Home's Fundamentals card reads it; the sample data is gone.
+- The frontend still repeats the five fundamentals in `DrawingWorkspace.vue` and `ReferenceBank.vue`. They should match `src/practice/fundamentals.ts`.
 
 ## 2026-11-22 — Sharing, following, and CoverageTracking design (Amina)
 

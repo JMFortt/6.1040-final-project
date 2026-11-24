@@ -1,33 +1,14 @@
 import { computed, ref } from "vue";
+import { api } from "../client.ts";
 
 export interface CoverageRow { fundamental: string; count: number }
-
-/**
- * The fundamentals shown in the app. A stand-in until ReferencePhotoBinning
- * supplies its tags; the coverage endpoint will then report on that list instead.
- */
-export const FUNDAMENTALS = ["perspective", "anatomy", "lighting", "color", "form"] as const;
-
-/**
- * SAMPLE DATA, shown with a visible "Sample data" badge so the layout can be judged.
- * Nothing records practices yet: CoverageTracking needs ReferencePhotoBinning first.
- * Remove this, and load from the coverage endpoint in `load`, once that endpoint exists.
- */
-const SAMPLE: CoverageRow[] = [
-  { fundamental: "perspective", count: 2 },
-  { fundamental: "anatomy", count: 0 },
-  { fundamental: "lighting", count: 4 },
-  { fundamental: "color", count: 3 },
-  { fundamental: "form", count: 1 },
-];
 
 /** Least practiced first, then by name: the order CoverageTracking._coverage returns. */
 const ordered = (rows: CoverageRow[]) => [...rows].sort((a, b) => a.count - b.count || a.fundamental.localeCompare(b.fundamental));
 
-/** The signed-in artist's practice count for each fundamental. */
+/** The signed-in artist's count of saved practices for each fundamental. */
 export function useCoverage() {
   const rows = ref<CoverageRow[]>([]);
-  const sample = ref(false);
   const loading = ref(false);
   const error = ref("");
 
@@ -35,10 +16,11 @@ export function useCoverage() {
     loading.value = true;
     error.value = "";
     try {
-      rows.value = ordered(SAMPLE);
-      sample.value = true;
-    } catch {
-      error.value = "Could not load your fundamentals.";
+      const result = await api.coverage.current();
+      if ("error" in result) throw new Error(result.error === "UNAUTHORIZED" ? "Your session ended. Sign in again." : "Could not load your fundamentals.");
+      rows.value = ordered(result.coverage.rows);
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : "Could not load your fundamentals.";
     } finally { loading.value = false; }
   }
 
@@ -48,6 +30,7 @@ export function useCoverage() {
     const lowest = rows.value[0]?.count;
     return lowest === undefined ? [] : rows.value.filter(row => row.count === lowest).map(row => row.fundamental);
   });
+  const practicedAny = computed(() => rows.value.some(row => row.count > 0));
 
-  return { rows, sample, loading, error, max, neglected, load };
+  return { rows, loading, error, max, neglected, practicedAny, load };
 }
