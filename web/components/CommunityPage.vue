@@ -24,8 +24,7 @@ onMounted(load);
 <template>
   <main class="community">
     <div class="content">
-      <p class="eyebrow">COMMUNITY</p>
-      <h1>Artists</h1>
+      <h1>Community</h1>
       <p class="intro">Follow artists whose process you want to learn from. Their shared artworks appear in the Following tab of your feed on Home.</p>
 
       <div class="layout">
@@ -63,9 +62,8 @@ onMounted(load);
 <style scoped>
 .community { min-height: calc(100dvh - 65px); background: #f3f5ee; color: #27372d; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; }
 .content { max-width: 1040px; margin: auto; padding: 36px 28px; }
-.eyebrow { font-size: 10px; letter-spacing: 2px; color: #70776e; margin: 0; }
 h1, h2, h3 { font-family: Georgia, serif; font-weight: 400; margin: 0; }
-h1 { font-size: 32px; margin: 10px 0 12px; }
+h1 { font-size: 32px; margin: 0 0 12px; }
 h2 { font-size: 22px; margin-bottom: 16px; }
 .intro { margin: 0; color: #70776e; font-size: 14px; line-height: 1.6; max-width: 60ch; }
 .layout { display: grid; grid-template-columns: minmax(0, 620px) 300px; gap: 40px; margin-top: 32px; }

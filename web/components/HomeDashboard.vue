@@ -67,7 +67,7 @@ button:focus-visible { outline: 2px solid #567b8a; outline-offset: 3px; }
 .practice:hover { background: #3c4e34; }
 .side { width: 300px; display: grid; gap: 16px; }
 .streak { padding: 24px 28px; background: white; border: 1px solid #dfe2d8; border-radius: 16px; display: grid; gap: 6px; text-align: center; }
-.label { margin: 0; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #70776e; }
+.label { margin: 0; font-family: Georgia, serif; font-weight: 400; font-size: 20px; color: #27372d; }
 .count { margin: 0; font-size: 16px; color: #57605a; }
 .count strong { display: block; font-family: Georgia, serif; font-size: 64px; font-weight: 400; line-height: 1.1; color: #465a3d; }
 .hint { margin: 0; max-width: 24ch; justify-self: center; color: #70776e; font-size: 12px; line-height: 1.5; }

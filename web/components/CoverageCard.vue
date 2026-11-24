@@ -32,8 +32,8 @@ const list = (names: string[]) => names.length <= 1 ? names.join("") : `${names.
 <style scoped>
 .coverage { padding: 20px 24px; background: white; border: 1px solid #dfe2d8; border-radius: 16px; display: grid; gap: 12px; }
 .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.label { margin: 0; font-family: inherit; font-weight: 400; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #70776e; }
-.badge { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: #f6ecd9; color: #7a5a1e; border: 1px solid #e8d4ac; }
+.label { margin: 0; font-family: Georgia, serif; font-weight: 400; font-size: 20px; color: #27372d; }
+.badge { font-family: Georgia, serif; font-weight: 400; font-size: 13px; padding: 3px 10px; border-radius: 999px; background: #f6ecd9; color: #7a5a1e; border: 1px solid #e8d4ac; }
 ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 li { display: grid; grid-template-columns: 92px minmax(60px, 1fr) 24px; align-items: center; gap: 10px; font-size: 13px; }
 .name { text-transform: capitalize; color: #27372d; }

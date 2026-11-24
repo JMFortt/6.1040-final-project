@@ -19,12 +19,12 @@ const leaveTitle = "Finish saving this artwork before leaving.";
     <nav aria-label="Main">
       <ul>
         <li v-for="page in pages" :key="page.id">
-          <button class="tab" :class="{ active: current === page.id }" :aria-current="current === page.id ? 'page' : undefined" :disabled="locked && current !== page.id" :title="locked && current !== page.id ? leaveTitle : undefined" @click="emit('navigate', page.id)">{{ page.label }}</button>
+          <button class="tab" :data-label="page.label" :class="{ active: current === page.id }" :aria-current="current === page.id ? 'page' : undefined" :disabled="locked && current !== page.id" :title="locked && current !== page.id ? leaveTitle : undefined" @click="emit('navigate', page.id)">{{ page.label }}</button>
         </li>
       </ul>
     </nav>
     <div class="actions">
-      <button v-if="references" class="quiet" :class="{ current: current === 'references' }" :disabled="locked" :title="locked ? leaveTitle : undefined" :aria-current="current === 'references' ? 'page' : undefined" @click="emit('navigate', 'references')">References</button>
+      <button v-if="references" class="quiet" data-label="References" :class="{ current: current === 'references' }" :disabled="locked" :title="locked ? leaveTitle : undefined" :aria-current="current === 'references' ? 'page' : undefined" @click="emit('navigate', 'references')">References</button>
       <button class="quiet" @click="emit('help')">Help</button>
       <span class="me" :title="`Signed in as ${username}`">{{ username }}</span>
       <button class="quiet" :disabled="locked" :title="locked ? leaveTitle : undefined" @click="emit('signOut')">Sign out</button>
@@ -40,9 +40,11 @@ button:focus-visible { outline: 2px solid #567b8a; outline-offset: 3px; }
 .wordmark { font-size: 25px; font-weight: 700; letter-spacing: -1px; background: none; border: 0; padding: 0; }
 .wordmark span { color: #929a77; }
 ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
-.tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 10px 12px; color: #70776e; font-size: 14px; }
+.tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 10px 12px; color: #70776e; font-size: 14px; white-space: nowrap; }
 .tab:hover { color: #27372d; }
 .tab.active { color: #27372d; border-bottom-color: #465a3d; font-weight: 600; }
+/* The bold copy is invisible and keeps each button as wide as its selected label, so neighbors do not shift. */
+.tab::after, .quiet[data-label]::after { content: attr(data-label); display: block; font-weight: 600; height: 0; overflow: hidden; visibility: hidden; white-space: nowrap; pointer-events: none; }
 .actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .quiet { background: none; border-color: transparent; color: #57605a; }
 .quiet:hover, .quiet.current { border-color: #d5dcc7; }
