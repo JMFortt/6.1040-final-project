@@ -80,9 +80,9 @@ onBeforeUnmount(() => { disposed = true; request++; });
 <template>
   <main class="gallery">
     <div class="content">
-      <h1>Saved artworks</h1>
+      <h1>My artworks</h1>
       <p v-if="error" class="error" role="alert">{{ error }} <button @click="loadMore">Retry</button></p>
-      <div v-if="!loading && !error && !recordings.length" class="empty"><h2>Your first artwork starts with a mark.</h2><p>Draw on your canvas, then select Save artwork to keep it here.</p><button class="practice" @click="emit('practice')">Start Daily Practice</button></div>
+      <div v-if="!loading && !error && !recordings.length" class="empty"><h2>Your first artwork starts with a mark.</h2><p>No artworks created yet.</p><button class="practice" @click="emit('practice')">Start Daily Practice</button></div>
       <div v-else class="archive">
         <nav aria-label="Saved artworks">
           <ol>

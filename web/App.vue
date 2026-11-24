@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AppNav, { type Page } from "./components/AppNav.vue";
 import CommonsButton from "./components/CommonsButton.vue";
 import CommonsCallback from "./components/CommonsCallback.vue";
@@ -49,10 +49,20 @@ async function leave() {
 }
 
 // Each page starts at its top. Leaving Draw clears the lock the canvas was holding.
-watch(screen, (page) => {
+// A solid cover hides the new page until Vue has painted it, then fades away. The nav sits above that cover.
+const covered = ref(false);
+let coverFrame = 0;
+watch(screen, async (page) => {
   window.scrollTo(0, 0);
   if (page !== "draw") drawBusy.value = false;
+  covered.value = true;
+  cancelAnimationFrame(coverFrame);
+  await nextTick();
+  coverFrame = requestAnimationFrame(() => {
+    coverFrame = requestAnimationFrame(() => { covered.value = false; });
+  });
 });
+onBeforeUnmount(() => cancelAnimationFrame(coverFrame));
 
 // The welcome opens once for each account on this browser, and again from Help.
 // Remembering it in browser storage is a convenience: if storage is unavailable, it simply shows again.
@@ -73,11 +83,14 @@ function closeWelcome() {
   <template v-if="me && !returningFromCommons">
     <div class="app" :class="{ draw: screen === 'draw' }">
       <AppNav :current="screen" :username="me.username" :locked="drawBusy" :references="references" @navigate="screen = $event" @help="welcomeOpen = true" @sign-out="leave" />
-      <DrawingWorkspace v-if="screen === 'draw'" :key="me.username" @timelapses="screen = 'timelapses'" @busy="drawBusy = $event" />
-      <HomeDashboard v-else-if="screen === 'home'" :key="me.username" :username="me.username" @practice="screen = 'draw'" @timelapses="screen = 'timelapses'" @artists="screen = 'community'" />
-      <TimelapseGallery v-else-if="screen === 'timelapses'" :key="me.username" :username="me.username" @practice="screen = 'draw'" />
-      <ReferenceBank v-else-if="screen === 'references'" :key="me.username" :username="me.username" @claimed="refreshReferences" @denied="refreshReferences" />
-      <CommunityPage v-else :key="me.username" />
+      <div class="stage">
+        <DrawingWorkspace v-if="screen === 'draw'" :key="me.username" @timelapses="screen = 'timelapses'" @busy="drawBusy = $event" />
+        <HomeDashboard v-else-if="screen === 'home'" :key="me.username" :username="me.username" @practice="screen = 'draw'" @timelapses="screen = 'timelapses'" @artists="screen = 'community'" />
+        <TimelapseGallery v-else-if="screen === 'timelapses'" :key="me.username" :username="me.username" @practice="screen = 'draw'" />
+        <ReferenceBank v-else-if="screen === 'references'" :key="me.username" :username="me.username" @claimed="refreshReferences" @denied="refreshReferences" />
+        <CommunityPage v-else :key="me.username" />
+        <div class="veil" :class="{ shown: covered, draw: screen === 'draw' }" aria-hidden="true" />
+      </div>
     </div>
     <WelcomeDialog :open="welcomeOpen" @close="closeWelcome" @practice="screen = 'draw'" />
   </template>
@@ -96,6 +109,12 @@ function closeWelcome() {
 
 <style scoped>
 .app.draw { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+.stage { isolation: isolate; }
+.app.draw .stage { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.veil { position: fixed; z-index: 40; inset: 0; background: #f3f5ee; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+.veil.draw { background: #f8f9f4; }
+.veil.shown { opacity: 1; transition: none; }
+@media (prefers-reduced-motion: reduce) { .veil { display: none; } }
 @media (max-width: 760px) {
   .app.draw { height: auto; min-height: 100dvh; overflow: visible; }
 }
