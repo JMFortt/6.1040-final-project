@@ -186,4 +186,20 @@ describe("TimeLapsing", () => {
     await expect(recording.undo({ owner: "maya", key: crypto.randomUUID(), sequence: 9, timestamp: 6002 })).rejects.toBeInstanceOf(NothingToUndo);
     await expect(recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 9, image: picture })).rejects.toBeInstanceOf(EmptyHistory);
   });
+
+  test("abandon removes the unfinished drawing and leaves a completed recording", async () => {
+    const first = update();
+    await recording.addUpdate(first);
+    await recording.complete({ owner: "maya", key: crypto.randomUUID(), sequence: 2, image: picture });
+    const second = update(3);
+    await recording.addUpdate(second);
+    expect(await recording.abandon({ owner: "maya" })).toEqual({});
+    expect(await recording._history({ owner: "maya", after: 0 })).toEqual({ start: 2, tip: 2, updates: [], redo: 0 });
+    const { owner, ...kept } = first;
+    expect(await recording._recording({ owner, index: 1, after: 0 })).toEqual({ found: true, updates: [kept] });
+    expect(await recording.abandon({ owner: "maya" })).toEqual({});
+    const next = update(3);
+    await recording.addUpdate(next);
+    expect((await recording._history({ owner: "maya", after: 0 })).updates.map((item) => item.key)).toEqual([next.key]);
+  });
 });

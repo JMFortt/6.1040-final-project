@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { easternWeek } from "../../src/practice/week.ts";
+import { easternDay, easternWeek } from "../../src/practice/week.ts";
 
 const week = (iso: string) => easternWeek({ instant: new Date(iso) });
+const day = (iso: string) => easternDay({ instant: new Date(iso) });
 
 describe("easternWeek", () => {
   test("week 0 starts at midnight Eastern Time on Monday 1970-01-05", () => {
@@ -25,5 +26,20 @@ describe("easternWeek", () => {
     const iso = "2026-11-25T17:00:00Z";
     expect(easternWeek({ instant: Date.parse(iso) })).toBe(week(iso));
     expect(easternWeek({ instant: iso })).toBe(week(iso));
+  });
+});
+
+describe("easternDay", () => {
+  test("day 0 is 1970-01-01 in Eastern Time", () => {
+    expect(day("1970-01-01T05:00:00Z")).toBe(0);
+    expect(day("1970-01-01T04:59:59Z")).toBe(-1);
+  });
+
+  test("the date changes at local midnight, including across daylight saving time", () => {
+    const sunday = day("2026-11-30T04:59:59Z");
+    expect(day("2026-11-30T05:00:00Z")).toBe(sunday + 1);
+    expect(day("2026-11-30T02:00:00Z")).toBe(sunday);
+    const spring = day("2026-03-09T03:59:59Z");
+    expect(day("2026-03-09T04:00:00Z")).toBe(spring + 1);
   });
 });

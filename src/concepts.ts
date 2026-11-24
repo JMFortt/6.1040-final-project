@@ -9,7 +9,9 @@ import { following } from "./concepts/Following/registry.ts";
 import { liking } from "./concepts/Liking/registry.ts";
 import { streakTracking } from "./concepts/StreakTracking/registry.ts";
 import { coverageTracking } from "./concepts/CoverageTracking/registry.ts";
-import { easternWeek } from "./practice/week.ts";
+import { referencePhotoBinning } from "./concepts/ReferencePhotoBinning/registry.ts";
+import { practicing } from "./concepts/Practicing/registry.ts";
+import { easternDay, easternWeek } from "./practice/week.ts";
 
 export const applicationConceptSet = conceptSet({
   Registering: registering,
@@ -22,6 +24,8 @@ export const applicationConceptSet = conceptSet({
   Liking: liking,
   StreakTracking: streakTracking,
   CoverageTracking: coverageTracking,
-}, { easternWeek });
+  ReferencePhotoBinning: referencePhotoBinning,
+  Practicing: practicing,
+}, { easternDay, easternWeek });
 
 export const { concepts, computations } = applicationConceptSet;

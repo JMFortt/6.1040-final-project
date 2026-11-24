@@ -27,6 +27,7 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
   let stopped = false;
   let reconciled = false;
   let revising = false;
+  let dropping = false;
   const unsaved = computed(() => pending.value.length > 0 || submissionPending.value);
   const noteDrawn = () => { drawn.value = history.length; };
 
@@ -96,7 +97,7 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
     saving.value = true;
     error.value = "";
     try {
-      while (pending.value.length && !stopped) {
+      while (pending.value.length && !stopped && !dropping) {
         const next = pending.value[0]!;
         const result = await api.canvas.stroke({ ...next, sequence: sequence.value + 1 });
         if ("error" in result) {
@@ -208,6 +209,33 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
     }
   }
 
+  async function abandon() {
+    dropping = true;
+    pending.value = [];
+    rejectedKey.value = null;
+    submission.value = null;
+    while (saving.value || revising) await new Promise((resolve) => queueMicrotask(resolve));
+    error.value = "";
+    try {
+      const result = await api.practice.discard();
+      if (stopped) return false;
+      if ("error" in result) throw new Error(result.error === "UNAUTHORIZED"
+        ? "Your session ended. Sign in again."
+        : "Could not discard this drawing. Try again.");
+      history.length = 0;
+      keys.clear();
+      redoCount.value = 0;
+      sequence.value = start.value;
+      noteDrawn();
+      blocked.value = false;
+      await onReconcile([]);
+      return true;
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : "Could not discard this drawing. Try again.";
+      return false;
+    } finally { dropping = false; }
+  }
+
   async function discardRejected() {
     if (!rejectedKey.value || saving.value || stopped) return;
     // Keep the rejected mark visible and pending until the artist chooses this.
@@ -276,7 +304,7 @@ export function useCanvasHistory(onReconcile: (strokes: Stroke[], mode?: "replac
   });
 
   return {
-    load, flush, enqueue, submit, discardRejected, undo: () => revise("undo"), redo: () => revise("redo"),
+    load, flush, enqueue, submit, abandon, discardRejected, undo: () => revise("undo"), redo: () => revise("redo"),
     rejectedKey, pending, saved, canUndo, canRedo, saving, loading, error, unsaved, submitting, submissionPending, blocked,
   };
 }

@@ -143,6 +143,69 @@ Defined in [Posting](../design/concepts/Posting.md), line 1.
   - `Author` is `Registering.User` — [Application types](../design/types.md), line 23.
   - `Work` is `TimelapseNumber` — [Application types](../design/types.md), line 24.
 
+### Practicing
+
+Defined in [Practicing](../design/concepts/Practicing.md), line 1.
+
+#### Actions
+
+- `begin(artist: Artist, fundamental: Fundamental, image: String, source: String, credit: String) : returns (fundamental: Fundamental, image: String, source: String, credit: String, started: Flag, startedAt: Number)`
+  - Refuses `INVALID_ATTEMPT`: A practice needs one fundamental and a reference.
+- `start(artist: Artist, instant: DateTime) : returns (startedAt: Number)`
+  - Refuses `INVALID_ATTEMPT`: A practice needs one fundamental and a reference.
+  - Refuses `NOT_PRACTICING`: There is no practice to time.
+- `end(artist: Artist) : returns ()`
+
+#### Queries
+
+- `_current(artist: Artist) : one (practicing: Flag, fundamental: Fundamental, image: String, source: String, credit: String, started: Flag, startedAt: Number)`
+
+#### Instances
+
+- `Practicing` — instance of `Practicing` — [Application types](../design/types.md), line 44.
+  - `Artist` is `Registering.User` — [Application types](../design/types.md), line 45.
+  - `Fundamental` is `FundamentalName` — [Application types](../design/types.md), line 46.
+
+### ReferencePhotoBinning
+
+Defined in [ReferencePhotoBinning](../design/concepts/ReferencePhotoBinning.md), line 1.
+
+#### Actions
+
+- `appoint(admin: Admin, curator: Admin) : returns ()`
+  - Refuses `FIRST_CURATOR`: The first curator must appoint themself.
+  - Refuses `NOT_CURATOR`: Only a curator can change the reference bank.
+  - Refuses `ALREADY_CURATOR`: This person is already a curator.
+- `add(admin: Admin, key: String, source: String, credit: String, tags: Set<Fundamental>) : returns (image: String)`
+  - Refuses `NOT_CURATOR`: Only a curator can change the reference bank.
+  - Refuses `INVALID_IMAGE`: The image needs a key, a source, a credit, and one to eight tags.
+  - Refuses `IMAGE_KEY_REUSED`: This image identifier has already been used.
+  - Refuses `SOURCE_REUSED`: This reference is already in the bank.
+- `provide(key: String, source: String, credit: String, tags: Set<Fundamental>) : returns (image: String)`
+  - Refuses `INVALID_IMAGE`: The image needs a key, a source, a credit, and one to eight tags.
+  - Refuses `IMAGE_KEY_REUSED`: This image identifier has already been used.
+  - Refuses `SOURCE_REUSED`: This reference is already in the bank.
+- `remove(admin: Admin, image: String) : returns ()`
+  - Refuses `NOT_CURATOR`: Only a curator can change the reference bank.
+  - Refuses `IMAGE_NOT_FOUND`: That reference is not in the bank.
+- `tag(admin: Admin, image: String, tags: Set<Fundamental>) : returns ()`
+  - Refuses `NOT_CURATOR`: Only a curator can change the reference bank.
+  - Refuses `INVALID_IMAGE`: A reference needs one to eight tags.
+  - Refuses `IMAGE_NOT_FOUND`: That reference is not in the bank.
+- `request(day: Number, fundamental: Fundamental) : returns (found: Flag, image: String, source: String, credit: String)`
+
+#### Queries
+
+- `_catalog() : one (images: Catalog)`
+- `_curator(admin: Admin) : one (curator: Flag)`
+- `_vacant() : one (vacant: Flag)`
+
+#### Instances
+
+- `ReferencePhotoBinning` — instance of `ReferencePhotoBinning` — [Application types](../design/types.md), line 40.
+  - `Admin` is `Registering.User` — [Application types](../design/types.md), line 41.
+  - `Fundamental` is `FundamentalName` — [Application types](../design/types.md), line 42.
+
 ### Registering
 
 Defined in [Registering](../design/concepts/Registering.md), line 1.
@@ -226,6 +289,7 @@ Defined in [TimeLapsing](../design/concepts/TimeLapsing.md), line 1.
   - Refuses `UPDATE_KEY_REUSED`: This update identifier has already been used.
   - Refuses `STALE_HISTORY`: Load the latest history before adding this update.
   - Refuses `NOTHING_TO_REDO`: There is no stroke to redo.
+- `abandon(owner: Owner) : returns ()`
 
 #### Queries
 
@@ -243,11 +307,12 @@ Defined in [TimeLapsing](../design/concepts/TimeLapsing.md), line 1.
 
 Concrete types:
 
-- `FundamentalName` — [Application types](../design/types.md), line 53.
-- `TimelapseNumber` — [Application types](../design/types.md), line 50.
+- `FundamentalName` — [Application types](../design/types.md), line 61.
+- `TimelapseNumber` — [Application types](../design/types.md), line 58.
 
 ## Computations
 
+- `easternDay(instant: DateTime) : Number` — [Reference bank](../design/compositions/practice/references.md), line 4.
 - `easternWeek(instant: DateTime) : Number` — [Weekly streaks](../design/compositions/practice/streaks.md), line 6.
 
 ## Formers
@@ -621,6 +686,479 @@ where
   earlier, RequestBoundary.request (key, path: "/canvas/undo", requestId, sequence, session, timestamp)
 then
   RequestBoundary.respond (removed, requestId, sequence: saved)
+```
+
+### practice.practicing.Begin
+
+Authored path: `practice.practicing.Begin`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+
+```reaction
+when RequestBoundary.request (fundamental, path: "/practice/begin", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.practicing.Begin#2
+
+Authored path: `practice.practicing.Begin`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+
+```reaction
+when Sessioning.use (session, subject: artist), asked by practice.practicing.Begin
+where
+  instant is the current flow's instant
+  day is easternDay (instant)
+  earlier, RequestBoundary.request (fundamental, path: "/practice/begin", requestId, session)
+then
+  ReferencePhotoBinning.request (day, fundamental)
+```
+
+### practice.practicing.Begin#3
+
+Authored path: `practice.practicing.Begin`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+
+```reaction
+when ReferencePhotoBinning.request (day, fundamental, credit, image, source), asked by practice.practicing.Begin#2
+where
+  earlier, Sessioning.use (session, subject: artist), asked by practice.practicing.Begin
+then
+  Practicing.begin (artist, credit, fundamental, image, source)
+```
+
+### practice.practicing.Begin#4
+
+Authored path: `practice.practicing.Begin`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+
+```reaction
+when Practicing.begin (artist, credit, fundamental, image, source, started, startedAt), asked by practice.practicing.Begin#3
+where
+  earlier, RequestBoundary.request (fundamental, path: "/practice/begin", requestId, session)
+then
+  RequestBoundary.respond (credit, fundamental, image, requestId, source, started, startedAt)
+```
+
+### practice.practicing.Current
+
+Authored path: `practice.practicing.Current`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 12.
+
+```reaction
+when RequestBoundary.request (path: "/practice/current", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.practicing.Current#2
+
+Authored path: `practice.practicing.Current`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 12.
+
+```reaction
+when Sessioning.use (session, subject: artist), asked by practice.practicing.Current
+where
+  Practicing._current (artist) has (credit, fundamental, image, practicing, source, started, startedAt)
+  earlier, RequestBoundary.request (path: "/practice/current", requestId, session)
+then
+  RequestBoundary.respond (credit, fundamental, image, practicing, requestId, source, started, startedAt)
+```
+
+### practice.practicing.Discard
+
+Authored path: `practice.practicing.Discard`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+
+```reaction
+when RequestBoundary.request (path: "/practice/discard", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.practicing.Discard#2
+
+Authored path: `practice.practicing.Discard`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+
+```reaction
+when Sessioning.use (session, subject: artist), asked by practice.practicing.Discard
+then
+  TimeLapsing.abandon (owner: artist)
+```
+
+### practice.practicing.Discard#3
+
+Authored path: `practice.practicing.Discard`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+
+```reaction
+when TimeLapsing.abandon (owner: artist), asked by practice.practicing.Discard#2
+then
+  Practicing.end (artist)
+```
+
+### practice.practicing.Discard#4
+
+Authored path: `practice.practicing.Discard`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+
+```reaction
+when Practicing.end (artist), asked by practice.practicing.Discard#3
+where
+  earlier, RequestBoundary.request (path: "/practice/discard", requestId, session)
+then
+  RequestBoundary.respond (requestId)
+```
+
+### practice.practicing.Start
+
+Authored path: `practice.practicing.Start`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 5.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 14.
+
+```reaction
+when RequestBoundary.request (path: "/practice/start", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.practicing.Start#2
+
+Authored path: `practice.practicing.Start`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 5.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 14.
+
+```reaction
+when Sessioning.use (session, subject: artist), asked by practice.practicing.Start
+where
+  instant is the current flow's instant
+then
+  Practicing.start (artist, instant)
+```
+
+### practice.practicing.Start#3
+
+Authored path: `practice.practicing.Start`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 5.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 14.
+
+```reaction
+when Practicing.start (artist, instant, startedAt), asked by practice.practicing.Start#2
+where
+  earlier, RequestBoundary.request (path: "/practice/start", requestId, session)
+then
+  RequestBoundary.respond (requestId, startedAt)
+```
+
+### practice.practicing.SubmitEndsPractice
+
+Authored path: `practice.practicing.SubmitEndsPractice`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+
+```reaction
+when TimeLapsing.complete (owner)
+then
+  Practicing.end (artist: owner)
+```
+
+### practice.references.Access
+
+Authored path: `practice.references.Access`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 29.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 38.
+
+```reaction
+when RequestBoundary.request (path: "/references/access", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.references.Access#2
+
+Authored path: `practice.references.Access`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 29.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 38.
+
+```reaction
+when Sessioning.use (session, subject: admin), asked by practice.references.Access
+where
+  ReferencePhotoBinning._curator (admin) has (curator)
+  ReferencePhotoBinning._vacant () has (vacant)
+  earlier, RequestBoundary.request (path: "/references/access", requestId, session)
+then
+  RequestBoundary.respond (curator, requestId, vacant)
+```
+
+### practice.references.Add
+
+Authored path: `practice.references.Add`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 16.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 19.
+
+```reaction
+when RequestBoundary.request (credit, key, path: "/references/add", requestId, session, source, tags)
+then
+  Sessioning.use (session)
+```
+
+### practice.references.Add#2
+
+Authored path: `practice.references.Add`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 16.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 19.
+
+```reaction
+when Sessioning.use (session, subject: admin), asked by practice.references.Add
+where
+  earlier, RequestBoundary.request (credit, key, path: "/references/add", requestId, session, source, tags)
+then
+  ReferencePhotoBinning.add (admin, credit, key, source, tags)
+```
+
+### practice.references.Add#3
+
+Authored path: `practice.references.Add`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 16.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 19.
+
+```reaction
+when ReferencePhotoBinning.add (admin, credit, key, source, tags, image), asked by practice.references.Add#2
+where
+  earlier, RequestBoundary.request (credit, key, path: "/references/add", requestId, session, source, tags)
+then
+  RequestBoundary.respond (image, requestId)
+```
+
+### practice.references.Appoint
+
+Authored path: `practice.references.Appoint`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 10.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 13.
+
+```reaction
+when RequestBoundary.request (path: "/references/appoint", requestId, session, username)
+then
+  Sessioning.use (session)
+```
+
+### practice.references.Appoint:known#2
+
+Authored path: `practice.references.Appoint`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 10.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 13.
+
+```reaction
+when Sessioning.use (session, subject: admin), asked by practice.references.Appoint
+where
+  earlier, RequestBoundary.request (path: "/references/appoint", requestId, session, username)
+  Registering._byUsername (username) has (user: curator)
+then
+  ReferencePhotoBinning.appoint (admin, curator)
+```
+
+### practice.references.Appoint:known#3
+
+Authored path: `practice.references.Appoint`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 10.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 13.
+
+```reaction
+when ReferencePhotoBinning.appoint (admin, curator), asked by practice.references.Appoint:known#2
+where
+  earlier, RequestBoundary.request (path: "/references/appoint", requestId, session, username)
+then
+  RequestBoundary.respond (requestId)
+```
+
+### practice.references.Appoint:unknown#2
+
+Authored path: `practice.references.Appoint`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 10.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 13.
+
+```reaction
+when Sessioning.use (session, subject: admin), asked by practice.references.Appoint
+where
+  earlier, RequestBoundary.request (path: "/references/appoint", requestId, session, username)
+  no Registering._byUsername (username)
+then
+  RequestBoundary.respond (error: "USER_NOT_FOUND", requestId)
+```
+
+### practice.references.Catalog
+
+Authored path: `practice.references.Catalog`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 31.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 39.
+
+```reaction
+when RequestBoundary.request (path: "/references/catalog", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.references.Catalog:curator#2
+
+Authored path: `practice.references.Catalog`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 31.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 39.
+
+```reaction
+when Sessioning.use (session, subject: admin), asked by practice.references.Catalog
+where
+  ReferencePhotoBinning._curator (admin) has (curator: true)
+  ReferencePhotoBinning._catalog () has (images)
+  earlier, RequestBoundary.request (path: "/references/catalog", requestId, session)
+then
+  RequestBoundary.respond (images, requestId)
+```
+
+### practice.references.Catalog:visitor#2
+
+Authored path: `practice.references.Catalog`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 31.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 39.
+
+```reaction
+when Sessioning.use (session, subject: admin), asked by practice.references.Catalog
+where
+  ReferencePhotoBinning._curator (admin) has (curator: false)
+  earlier, RequestBoundary.request (path: "/references/catalog", requestId, session)
+then
+  RequestBoundary.respond (error: "NOT_CURATOR", requestId)
+```
+
+### practice.references.Remove
+
+Authored path: `practice.references.Remove`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 22.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 25.
+
+```reaction
+when RequestBoundary.request (image, path: "/references/remove", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.references.Remove#2
+
+Authored path: `practice.references.Remove`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 22.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 25.
+
+```reaction
+when Sessioning.use (session, subject: admin), asked by practice.references.Remove
+where
+  earlier, RequestBoundary.request (image, path: "/references/remove", requestId, session)
+then
+  ReferencePhotoBinning.remove (admin, image)
+```
+
+### practice.references.Remove#3
+
+Authored path: `practice.references.Remove`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 22.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 25.
+
+```reaction
+when ReferencePhotoBinning.remove (admin, image), asked by practice.references.Remove#2
+where
+  earlier, RequestBoundary.request (image, path: "/references/remove", requestId, session)
+then
+  RequestBoundary.respond (requestId)
+```
+
+### practice.references.Request
+
+Authored path: `practice.references.Request`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 35.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 40.
+
+```reaction
+when RequestBoundary.request (fundamental, path: "/references/request", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.references.Request#2
+
+Authored path: `practice.references.Request`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 35.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 40.
+
+```reaction
+when Sessioning.use (session), asked by practice.references.Request
+where
+  instant is the current flow's instant
+  day is easternDay (instant)
+  earlier, RequestBoundary.request (fundamental, path: "/references/request", requestId, session)
+then
+  ReferencePhotoBinning.request (day, fundamental)
+```
+
+### practice.references.Request#3
+
+Authored path: `practice.references.Request`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 35.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 40.
+
+```reaction
+when ReferencePhotoBinning.request (day, fundamental, credit, found, image, source), asked by practice.references.Request#2
+where
+  earlier, RequestBoundary.request (fundamental, path: "/references/request", requestId, session)
+then
+  RequestBoundary.respond (credit, found, image, requestId, source)
+```
+
+### practice.references.Tag
+
+Authored path: `practice.references.Tag`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 22.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 26.
+
+```reaction
+when RequestBoundary.request (image, path: "/references/tag", requestId, session, tags)
+then
+  Sessioning.use (session)
+```
+
+### practice.references.Tag#2
+
+Authored path: `practice.references.Tag`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 22.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 26.
+
+```reaction
+when Sessioning.use (session, subject: admin), asked by practice.references.Tag
+where
+  earlier, RequestBoundary.request (image, path: "/references/tag", requestId, session, tags)
+then
+  ReferencePhotoBinning.tag (admin, image, tags)
+```
+
+### practice.references.Tag#3
+
+Authored path: `practice.references.Tag`.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 22.
+- Covered by [Reference bank](../design/compositions/practice/references.md), line 26.
+
+```reaction
+when ReferencePhotoBinning.tag (admin, image, tags), asked by practice.references.Tag#2
+where
+  earlier, RequestBoundary.request (image, path: "/references/tag", requestId, session, tags)
+then
+  RequestBoundary.respond (requestId)
 ```
 
 ### practice.streaks.Current
@@ -1607,4 +2145,15 @@ not listed here have no explicit input contract.
 - `/posts/status` — requires `index`, `session`
 - `/posts/timelapse` — requires `after`, `post`, `session`
 - `/posts/unlike` — requires `post`, `session`
+- `/practice/begin` — requires `fundamental`, `session`
+- `/practice/current` — requires `session`
+- `/practice/discard` — requires `session`
+- `/practice/start` — requires `session`
+- `/references/access` — requires `session`
+- `/references/add` — requires `credit`, `key`, `session`, `source`, `tags`
+- `/references/appoint` — requires `session`, `username`
+- `/references/catalog` — requires `session`
+- `/references/remove` — requires `image`, `session`
+- `/references/request` — requires `fundamental`, `session`
+- `/references/tag` — requires `image`, `session`, `tags`
 - `/streaks/current` — requires `session`

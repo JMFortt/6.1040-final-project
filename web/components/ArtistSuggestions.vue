@@ -22,7 +22,7 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
       </button>
     </li>
   </ul>
-  <p v-else-if="loaded" class="none">You're following every active artist. New people will show up here when they share.</p>
+  <p v-else-if="loaded" class="none">No artists available.</p>
 </template>
 
 <style scoped>

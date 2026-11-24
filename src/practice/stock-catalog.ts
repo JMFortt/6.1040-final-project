@@ -1,0 +1,20 @@
+/** The curated Commons sample. Files live in web/public/references and are served at these paths. */
+export const stockPhotos = [
+  { key: "eltham-palace", source: "/references/eltham-palace.jpg", credit: "John K Thorne from London, United Kingdom, CC0", tags: ["perspective"] },
+  { key: "gold-pendant", source: "/references/gold-pendant.jpg", credit: "Unknown author, CC0", tags: ["color", "form", "lighting"] },
+  { key: "brass", source: "/references/brass.jpg", credit: "Splarka, Public domain", tags: ["form", "perspective"] },
+  { key: "flowers-leaves-bugs", source: "/references/flowers-leaves-bugs.jpg", credit: "terri_bateman, CC0", tags: ["color", "form"] },
+  { key: "tang-jade-dog", source: "/references/tang-jade-dog.jpg", credit: "Gary Todd, CC0", tags: ["form"] },
+  { key: "fontaine-diane", source: "/references/fontaine-diane.jpg", credit: "Jebulon, Public domain", tags: ["anatomy", "form", "perspective"] },
+  { key: "penacho", source: "/references/penacho.jpg", credit: "Álvaro de la Paz Franco, CC0", tags: ["anatomy", "perspective"] },
+  { key: "summer-palace-ornaments", source: "/references/summer-palace-ornaments.jpg", credit: "Hermann Luyken, CC0", tags: ["form"] },
+  { key: "mother-of-pearl-button", source: "/references/mother-of-pearl-button.jpg", credit: "Missouri Historical Society, Public domain", tags: ["color", "lighting"] },
+  { key: "iron-rust-vase", source: "/references/iron-rust-vase.jpg", credit: "Walters Art Museum, Public domain", tags: ["color", "lighting"] },
+  { key: "karl-gummies", source: "/references/karl-gummies.jpg", credit: "Johnson524, CC0", tags: ["color", "lighting"] },
+  { key: "gummy-bear", source: "/references/gummy-bear.jpg", credit: "Daniel Tibi, Public domain", tags: ["color", "lighting"] },
+  { key: "ionic-capital", source: "/references/ionic-capital.jpg", credit: "Neoclassicism Enthusiast, CC0", tags: ["form"] },
+  { key: "kolomenskaya-ball", source: "/references/kolomenskaya-ball.jpg", credit: "Retired electrician, CC0", tags: ["lighting", "perspective"] },
+  { key: "lions-mane-jellyfish", source: "/references/lions-mane-jellyfish.jpg", credit: "W.carter, CC0", tags: ["color", "form"] },
+  { key: "augustus-bronze", source: "/references/augustus-bronze.jpg", credit: "Jebulon, CC0", tags: ["anatomy"] },
+  { key: "guajillo", source: "/references/guajillo.jpg", credit: "ZooFari, Public domain", tags: ["form", "lighting"] },
+] as const;
