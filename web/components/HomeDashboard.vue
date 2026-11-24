@@ -40,8 +40,8 @@ onBeforeUnmount(() => { disposed = true; });
           <p id="streak-title" class="label">Weekly streak</p>
           <p v-if="streakError" class="error" role="alert">{{ streakError }} <button class="retry" @click="loadStreak">Retry</button></p>
           <template v-else>
-            <p class="count" aria-live="polite"><strong>{{ streak ?? "–" }}</strong> {{ streak === 1 ? "week" : "weeks" }}</p>
-            <p class="hint">{{ streak === 0 ? "Submit an artwork this week to start one." : "Submit an artwork each week, Monday to Sunday, to keep it going." }}</p>
+            <p class="count" aria-live="polite"><strong :class="{ pending: streak === null }">{{ streak ?? 0 }}</strong> <span class="unit">{{ streak === 1 ? "week" : "weeks" }}</span></p>
+            <p class="hint">{{ streak === 0 ? "Submit an artwork this week to start one." : "Submit an artwork this week to keep it going." }}</p>
           </template>
         </div>
         <CoverageCard />
@@ -69,8 +69,11 @@ button:focus-visible { outline: 2px solid #567b8a; outline-offset: 3px; }
 .streak { padding: 24px 28px; background: white; border: 1px solid #dfe2d8; border-radius: 16px; display: grid; gap: 6px; text-align: center; }
 .label { margin: 0; font-family: Georgia, serif; font-weight: 400; font-size: 20px; color: #27372d; }
 .count { margin: 0; font-size: 16px; color: #57605a; }
-.count strong { display: block; font-family: Georgia, serif; font-size: 64px; font-weight: 400; line-height: 1.1; color: #465a3d; }
-.hint { margin: 0; max-width: 24ch; justify-self: center; color: #70776e; font-size: 12px; line-height: 1.5; }
+.count strong { display: block; font-family: Georgia, serif; font-size: 64px; font-weight: 400; line-height: 1.1; font-variant-numeric: tabular-nums; color: #465a3d; }
+.count strong.pending { visibility: hidden; }
+.unit { display: inline-block; }
+.unit::before { content: "weeks"; display: block; height: 0; overflow: hidden; visibility: hidden; }
+.hint { margin: 0; max-width: 24ch; min-height: 4.5em; justify-self: center; color: #70776e; font-size: 12px; line-height: 1.5; }
 .error { margin: 0; color: #88492d; font-size: 13px; }
 .retry { padding: 6px 12px; font-size: 12px; }
 .below { max-width: 680px; margin: auto; padding: 32px 28px 64px; border-top: 1px solid #dfe2d8; }
