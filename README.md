@@ -13,6 +13,9 @@ Our concept design deliverables are available [here](deliverables/F3/main.md)
 
 Our Alpha checkpoint deliverables are available [here](deliverables/F4/F4.md)
 
+**Demo Video:**
+Available [here](https://www.youtube.com/watch?v=zkQu29Jh5wg).
+
 ## Running the app
 
 Redraw includes account sign-in and one persistent private drawing canvas per artist. The canvas uses Easy-Brush for a pressure-sensitive ink pen, dry brush, graphite, and an eraser. Color, size, opacity, and zoom controls work with a mouse, touch, or pen.
