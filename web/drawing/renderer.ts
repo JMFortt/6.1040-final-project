@@ -101,7 +101,10 @@ export class StrokeRenderer {
     const mask = tip(stroke.tool);
     const context = this.shape.getContext("2d")!;
     context.putImageData(mask.pixels, 0, 0);
-    context.globalAlpha = mask.alpha;
+    // The tip is black pixels with their own alpha. Recoloring uses this same context,
+    // and a leftover partial alpha would mix the chosen color back into that black.
+    context.globalAlpha = 1;
+    context.globalCompositeOperation = "source-over";
     this.brush.loadImage(this.shape);
     (this.brush as Brush & { _stampColor?: string })._stampColor = "";
     this.animate();
