@@ -164,14 +164,45 @@ function wheelZoom(event: WheelEvent) {
   void setZoom(scale.value * Math.exp(-Math.max(-100, Math.min(100, delta)) * 0.003), { x: event.clientX, y: event.clientY });
 }
 
-function coordinates(event: PointerEvent): StrokePoint {
+/** Chrome's pointermove often stays at 0 or 0.5 while pointerrawupdate still has the pen pressure. */
+let rawPen: { pressure: number; at: number } | undefined;
+let penContact = false;
+
+function rememberPen(event: PointerEvent) {
+  if (event.pointerType !== "pen" && event.pointerType !== "touch") return;
+  rawPen = { pressure: event.pressure, at: event.timeStamp };
+}
+
+function onRawPointer(event: Event) {
+  rememberPen(event as PointerEvent);
+}
+
+/** Firefox on Windows can leave PointerEvent.pressure at 0 while this still has the pen reading. */
+function firefoxPressure(event: PointerEvent): number | undefined {
+  if (event.pointerType !== "pen" && event.pointerType !== "touch") return;
+  const extra = (event as PointerEvent & { mozPressure?: number }).mozPressure;
+  if (typeof extra !== "number" || extra <= 0 || extra > 1 || extra === 0.5) return;
+  return extra;
+}
+
+/** A mouse reports 0.5 while its button is held. Anything else is real pressure, even if the tablet was labeled a mouse. */
+function pressureOf(sample: PointerEvent, source: PointerEvent): number {
+  const reported = sample.pressure > 0 ? sample.pressure : source.pressure;
+  const pen = sample.pointerType === "pen" || sample.pointerType === "touch" || source.pointerType === "pen" || source.pointerType === "touch";
+  const flat = reported === 0 || reported === 0.5;
+  const raw = rawPen && source.timeStamp - rawPen.at < 40 ? rawPen.pressure : undefined;
+  const moz = firefoxPressure(sample) ?? firefoxPressure(source);
+  const value = raw !== undefined && flat && raw > 0 && raw !== 0.5 ? raw : moz !== undefined && flat ? moz : reported;
+  if (pen || !flat || value !== reported) return Math.max(0, Math.min(1, value));
+  return 1;
+}
+
+function coordinates(event: PointerEvent, source = event): StrokePoint {
   const rect = canvas.value!.getBoundingClientRect();
-  const currentPressure = event.pointerType === "pen" || event.pointerType === "touch"
-    ? event.pressure : 1;
   return {
     x: Math.max(0, Math.min(CANVAS_WIDTH, (event.clientX - rect.left) * CANVAS_WIDTH / rect.width)),
     y: Math.max(0, Math.min(CANVAS_HEIGHT, (event.clientY - rect.top) * CANVAS_HEIGHT / rect.height)),
-    pressure: Math.max(0, Math.min(1, currentPressure)),
+    pressure: pressureOf(event, source),
     time: Math.max(active?.stroke.points.at(-1)?.time ?? 0, Math.round(event.timeStamp - (active?.started ?? event.timeStamp))),
   };
 }
@@ -191,6 +222,7 @@ function hover(event: PointerEvent) {
 }
 
 function startStroke(event: PointerEvent) {
+  if (event.pointerType === "mouse" && penContact) return;
   if (event.type === "pointerdown" && (panMode.value || event.button === 1) && !active && !pan && event.isPrimary) {
     if (event.button !== 0 && event.button !== 1) return;
     event.preventDefault();
@@ -212,7 +244,8 @@ function startStroke(event: PointerEvent) {
   }
   if (panMode.value || pan || zooming || !overSheet(event)) return;
   if (!practicing.value || locked.value || discarding.value) return;
-  if (!ready.value || restoring.value || submitting.value || submissionPending.value || blocked.value || rejectedKey.value || finishing.value || active || (event.type === "pointerdown" ? event.button !== 0 : event.buttons !== 1) || !event.isPrimary) return;
+  const penLike = event.pointerType === "pen" || event.pointerType === "touch";
+  if (!ready.value || restoring.value || submitting.value || submissionPending.value || blocked.value || rejectedKey.value || finishing.value || active || (event.type === "pointerdown" ? event.button !== 0 : event.buttons !== 1) || (!penLike && !event.isPrimary)) return;
   event.preventDefault();
   stage.value!.setPointerCapture(event.pointerId);
   active = {
@@ -226,9 +259,9 @@ function startStroke(event: PointerEvent) {
   if (!startedAt.value) void armClock();
 }
 
-function appendPoint(event: PointerEvent) {
+function appendPoint(event: PointerEvent, source = event) {
   if (!active) return;
-  const point = coordinates(event);
+  const point = coordinates(event, source);
   active.stroke.points.push(point);
   renderer!.point(point);
 }
@@ -240,13 +273,28 @@ function moveStroke(event: PointerEvent) {
   const samples = event.getCoalescedEvents?.() ?? [];
   for (const sample of samples.length ? samples : [event]) {
     if (!active) break;
-    appendPoint(sample);
+    appendPoint(sample, event);
     if (active.stroke.points.length >= MAX_POINTS) {
       // Complete this bounded record; the next move continues the same held gesture.
       void endStroke();
       break;
     }
   }
+}
+
+function captureStroke(event: PointerEvent) {
+  if (event.pointerType === "pen" || event.pointerType === "touch") {
+    if (event.type === "pointerdown") penContact = true;
+    if (event.type === "pointerup" || event.type === "pointercancel") penContact = false;
+  }
+  if (!stage.value || !canvas.value) return;
+  const onStage = event.target instanceof Node && stage.value.contains(event.target);
+  const over = onStage || overSheet(event);
+  if (event.type === "pointerdown" && event.button === 0 && over && event.cancelable) event.preventDefault();
+  if ((event.pointerType !== "pen" && event.pointerType !== "touch") || onStage || (!over && event.type === "pointerdown")) return;
+  if (event.type === "pointerdown") startStroke(event);
+  else if (event.type === "pointermove") continueStroke(event);
+  else if (event.type === "pointerup" || event.type === "pointercancel") void endStroke(event);
 }
 
 function continueStroke(event: PointerEvent) {
@@ -415,6 +463,13 @@ onMounted(async () => {
     if (zoom.value === "fit") centerSheet();
   });
   resize.observe(stage.value!);
+  document.documentElement.style.touchAction = "none";
+  document.body.style.touchAction = "none";
+  window.addEventListener("pointerrawupdate", onRawPointer);
+  window.addEventListener("pointerdown", captureStroke, { capture: true });
+  window.addEventListener("pointermove", captureStroke, { capture: true });
+  window.addEventListener("pointerup", captureStroke, { capture: true });
+  window.addEventListener("pointercancel", captureStroke, { capture: true });
   window.addEventListener("keydown", keydown);
   clockTimer = window.setInterval(() => { ticking.value = Date.now(); }, 200);
   const loaded = await storage.load();
@@ -426,6 +481,13 @@ onBeforeUnmount(() => {
   disposed = true;
   if (clockTimer !== undefined) window.clearInterval(clockTimer);
   resize?.disconnect();
+  document.documentElement.style.touchAction = "";
+  document.body.style.touchAction = "";
+  window.removeEventListener("pointerrawupdate", onRawPointer);
+  window.removeEventListener("pointerdown", captureStroke, { capture: true });
+  window.removeEventListener("pointermove", captureStroke, { capture: true });
+  window.removeEventListener("pointerup", captureStroke, { capture: true });
+  window.removeEventListener("pointercancel", captureStroke, { capture: true });
   renderer?.dispose();
   window.removeEventListener("keydown", keydown);
 });
@@ -495,7 +557,7 @@ onBeforeUnmount(() => {
       </div>
       </div>
       <div class="submission-bar">
-        <p>{{ locked ? "Time is up. Save this artwork, or discard it." : "Save keeps this artwork. Discard gives it up." }}</p>
+        <p>{{ locked ? "Time is up. Save this artwork, or discard it." : "Keep it up! You can discard or complete your drawing early." }}</p>
         <div>
           <button type="button" :disabled="!practicing || discarding || drawing || finishing || submitting || saving || restoring" @click="discardDrawing">{{ discarding ? "Discarding…" : "Discard" }}</button>
           <button class="submit" type="button" :disabled="!practicing || !ready || !saved || pending.length > 0 || saving || submitting || drawing || finishing || restoring || blocked || discarding" @click="submitDrawing">{{ submitting ? "Saving…" : submissionPending ? "Retry save" : "Save artwork" }}</button>
@@ -510,7 +572,7 @@ onBeforeUnmount(() => {
         <span class="status-dot" :class="{ waiting: saving || loading || restoring, failed: !!error }" />
         <span class="status-label"><span>{{ status }}</span><span class="status-sizer" aria-hidden="true">Submitting artwork…</span><span class="status-sizer" aria-hidden="true">Restoring canvas…</span><span class="status-sizer" aria-hidden="true">Saving artwork…</span></span>
       </div>
-      <div class="privacy"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 9V6a4 4 0 0 1 8 0v3 M4 9h12v9H4Z" /></svg>Your canvas is private.</div>
+      
     </footer>
     </div>
     <p v-if="practicing" class="clock" :class="{ done: locked }" role="timer" aria-label="Time remaining">{{ clockLabel }}</p>
@@ -601,7 +663,7 @@ input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
 .canvas-stage { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; touch-action: none; }
 .canvas-stage.pan-mode { cursor: grab; }
 .canvas-stage.panning { cursor: grabbing; }
-.canvas-position { position: absolute; left: 0; top: 0; background: white; box-shadow: 0 2px 4px #25301d08, 0 12px 35px #25301d12; }
+.canvas-position { position: absolute; left: 0; top: 0; background: white; box-shadow: 0 2px 4px #25301d08, 0 12px 35px #25301d12; touch-action: none; }
 .drawing-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: none; }
 .drawing-canvas.unavailable { cursor: wait; }
 .pan-mode .drawing-canvas { cursor: grab; }

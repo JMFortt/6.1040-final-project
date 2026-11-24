@@ -58,6 +58,8 @@ export class StrokeRenderer {
   private omitted = 0;
   private tracking = false;
   private readonly kept = 24;
+  /** Previous sample, so a held pen can thicken in place and a fast move stays filled. */
+  private lastSample: { x: number; y: number; pressure: number } | null = null;
 
   constructor(private readonly view: HTMLCanvasElement) {
     view.width = CANVAS_WIDTH;
@@ -65,10 +67,17 @@ export class StrokeRenderer {
     view.getContext("2d", { willReadFrequently: true });
     this.brush.maxUndoRedoStackSize = 0;
     this.brush.loadContext(this.layer);
+    // Spacing blends the previous pressure into the next one and ignores a pen that has not moved.
+    // A hard press then shows up later, as a taper along the tail, instead of under the nib.
+    this.brush.isSpacing = false;
+    this.brush.isSmooth = false;
+    const pace = this.brush as unknown as { lagDistance: number; minSpacePixel: number };
+    pace.lagDistance = 0;
+    pace.minSpacePixel = 0.15;
     // Bind a fresh object: Easy-Brush 0.5.0's default config is shared across instances.
-    this.brush.bindConfig({ color: "#000000", size: 8, flow: 1, opacity: 1, spacing: 0.12, roundness: 1, angle: 0 });
+    this.brush.bindConfig({ color: "#000000", size: 8, flow: 1, opacity: 1, spacing: 0.05, roundness: 1, angle: 0 });
     this.brush.useModule({ onChangeConfig: (config, pressure) => {
-      config.size *= Math.max(0.12, pressure);
+      config.size *= Math.max(0.08, Math.max(0, Math.min(1, pressure)));
     } });
   }
 
@@ -79,24 +88,44 @@ export class StrokeRenderer {
 
   begin(stroke: Stroke) {
     this.active = stroke;
+    this.lastSample = null;
+    this.brush.isSpacing = false;
+    this.brush.isSmooth = false;
     this.brush.clear();
     this.brush.loadConfig({
       color: stroke.tool === "eraser" ? "#000000" : stroke.color,
       size: stroke.size, opacity: stroke.opacity,
       flow: stroke.tool === "graphite" ? 0.3 : stroke.tool === "dry-brush" ? 0.75 : 1,
-      spacing: stroke.tool === "graphite" ? 0.08 : 0.12,
+      spacing: stroke.tool === "graphite" ? 0.035 : 0.05,
     });
     const mask = tip(stroke.tool);
     const context = this.shape.getContext("2d")!;
     context.putImageData(mask.pixels, 0, 0);
     context.globalAlpha = mask.alpha;
     this.brush.loadImage(this.shape);
+    (this.brush as Brush & { _stampColor?: string })._stampColor = "";
     this.animate();
   }
 
   point(point: StrokePoint) {
-    this.brush.putPoint(point.x, point.y, point.pressure);
+    const pressure = Math.max(0, Math.min(1, point.pressure));
+    const previous = this.lastSample;
+    if (previous) {
+      const dx = point.x - previous.x;
+      const dy = point.y - previous.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 0.35 && Math.abs(pressure - previous.pressure) < 0.012) return;
+      const width = Math.max(1, (this.active?.size ?? 8) * Math.max(0.08, pressure));
+      const step = Math.max(0.75, width * 0.3);
+      const count = Math.min(48, Math.floor(distance / step));
+      for (let i = 1; i <= count; i++) {
+        const t = i / (count + 1);
+        this.brush.putPoint(previous.x + dx * t, previous.y + dy * t, previous.pressure + (pressure - previous.pressure) * t);
+      }
+    }
+    this.brush.putPoint(point.x, point.y, pressure);
     this.brush.render();
+    this.lastSample = { x: point.x, y: point.y, pressure };
   }
 
   private paint() {
