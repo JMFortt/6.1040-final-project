@@ -514,21 +514,16 @@ onBeforeUnmount(() => {
     </footer>
     </div>
     <p v-if="practicing" class="clock" :class="{ done: locked }" role="timer" aria-label="Time remaining">{{ clockLabel }}</p>
-    <section v-else class="chooser" aria-labelledby="practice-choice-title">
+    <section v-else class="chooser" :aria-busy="!sessionReady && !sessionError" aria-labelledby="practice-choice-title">
       <div class="chooser-card">
         <h2 id="practice-choice-title">Choose a fundamental</h2>
-        <p v-if="!sessionReady && !sessionError">Loading your practice…</p>
-        <template v-else-if="sessionError">
-          <p class="error" role="alert">{{ sessionError }}</p>
-          <button type="button" @click="loadSession">Retry</button>
-        </template>
-        <template v-else>
-          <p>Today's reference for that fundamental is shown beside the canvas. The 15-minute timer starts when you make the first stroke.</p>
-          <div class="choices">
-            <button v-for="item in FUNDAMENTALS" :key="item" type="button" :disabled="choosing !== ''" @click="choose(item)">{{ choosing === item ? "Starting…" : label(item) }}</button>
-          </div>
-          <p v-if="chooseError" class="error" role="alert">{{ chooseError }}</p>
-        </template>
+        <p>Today's reference for that fundamental is shown beside the canvas. The 15-minute timer starts when you make the first stroke.</p>
+        <div class="choices">
+          <button v-for="item in FUNDAMENTALS" :key="item" type="button" :disabled="!sessionReady || choosing !== ''" @click="choose(item)">{{ choosing === item ? "Starting…" : label(item) }}</button>
+        </div>
+        <p v-if="sessionError" class="error" role="alert">{{ sessionError }}</p>
+        <button v-if="sessionError" type="button" @click="loadSession">Retry</button>
+        <p v-if="chooseError" class="error" role="alert">{{ chooseError }}</p>
       </div>
     </section>
   </main>
