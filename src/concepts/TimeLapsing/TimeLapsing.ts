@@ -209,6 +209,14 @@ export class TimeLapsingConcept<Owner extends string> {
     return { sequence: existing.sequence, key: restored.key, change: restored.change, timestamp: restored.timestamp };
   }
 
+  /** Drops the unfinished recording. Completed recordings stay, and a second call finds nothing to remove. */
+  async abandon({ owner }: { owner: Owner }) {
+    await this.#ready();
+    const { start } = await this.#bounds(owner);
+    await this.events.deleteMany({ owner, sequence: { $gt: start } });
+    return {};
+  }
+
   /** The stroke an undo removed, or a redo restored, is the top of that stack just before the event. */
   async #moved(owner: Owner, sequence: number, kind: "undo" | "redo") {
     const previous = await this.events.findOne({ owner, kind: "completion", sequence: { $lt: sequence } }, { sort: { sequence: -1 } });

@@ -6,6 +6,7 @@ import { accountsHttp } from "./compositions/reusable/accounts.ts";
 import { commonsHttp } from "./compositions/reusable/commons.ts";
 import { passwordsHttp } from "./compositions/reusable/passwords.ts";
 import { referencesHttp } from "./compositions/practice/references.ts";
+import { practicingHttp } from "./compositions/practice/practicing.ts";
 
 /** Refusal code to HTTP category. A code missing here reaches the browser as INTERNAL_ERROR. */
 export function redrawPolicy(publicOrigin: string): HttpPolicy {
@@ -20,6 +21,7 @@ export function redrawPolicy(publicOrigin: string): HttpPolicy {
       ...postsHttp.publicErrors,
       ...peopleHttp.publicErrors,
       ...referencesHttp.publicErrors,
+      ...practicingHttp.publicErrors,
     },
     cookies: {
       session: accountsHttp.sessionCookie("redraw-session", [

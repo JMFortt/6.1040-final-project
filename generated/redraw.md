@@ -143,6 +143,29 @@ Defined in [Posting](../design/concepts/Posting.md), line 1.
   - `Author` is `Registering.User` — [Application types](../design/types.md), line 23.
   - `Work` is `TimelapseNumber` — [Application types](../design/types.md), line 24.
 
+### Practicing
+
+Defined in [Practicing](../design/concepts/Practicing.md), line 1.
+
+#### Actions
+
+- `begin(artist: Artist, fundamental: Fundamental, image: String, source: String, credit: String) : returns (fundamental: Fundamental, image: String, source: String, credit: String, started: Flag, startedAt: Number)`
+  - Refuses `INVALID_ATTEMPT`: A practice needs one fundamental and a reference.
+- `start(artist: Artist, instant: DateTime) : returns (startedAt: Number)`
+  - Refuses `INVALID_ATTEMPT`: A practice needs one fundamental and a reference.
+  - Refuses `NOT_PRACTICING`: There is no practice to time.
+- `end(artist: Artist) : returns ()`
+
+#### Queries
+
+- `_current(artist: Artist) : one (practicing: Flag, fundamental: Fundamental, image: String, source: String, credit: String, started: Flag, startedAt: Number)`
+
+#### Instances
+
+- `Practicing` — instance of `Practicing` — [Application types](../design/types.md), line 44.
+  - `Artist` is `Registering.User` — [Application types](../design/types.md), line 45.
+  - `Fundamental` is `FundamentalName` — [Application types](../design/types.md), line 46.
+
 ### ReferencePhotoBinning
 
 Defined in [ReferencePhotoBinning](../design/concepts/ReferencePhotoBinning.md), line 1.
@@ -266,6 +289,7 @@ Defined in [TimeLapsing](../design/concepts/TimeLapsing.md), line 1.
   - Refuses `UPDATE_KEY_REUSED`: This update identifier has already been used.
   - Refuses `STALE_HISTORY`: Load the latest history before adding this update.
   - Refuses `NOTHING_TO_REDO`: There is no stroke to redo.
+- `abandon(owner: Owner) : returns ()`
 
 #### Queries
 
@@ -283,8 +307,8 @@ Defined in [TimeLapsing](../design/concepts/TimeLapsing.md), line 1.
 
 Concrete types:
 
-- `FundamentalName` — [Application types](../design/types.md), line 57.
-- `TimelapseNumber` — [Application types](../design/types.md), line 54.
+- `FundamentalName` — [Application types](../design/types.md), line 61.
+- `TimelapseNumber` — [Application types](../design/types.md), line 58.
 
 ## Computations
 
@@ -662,6 +686,190 @@ where
   earlier, RequestBoundary.request (key, path: "/canvas/undo", requestId, sequence, session, timestamp)
 then
   RequestBoundary.respond (removed, requestId, sequence: saved)
+```
+
+### practice.practicing.Begin
+
+Authored path: `practice.practicing.Begin`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+
+```reaction
+when RequestBoundary.request (fundamental, path: "/practice/begin", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.practicing.Begin#2
+
+Authored path: `practice.practicing.Begin`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+
+```reaction
+when Sessioning.use (session, subject: artist), asked by practice.practicing.Begin
+where
+  instant is the current flow's instant
+  day is easternDay (instant)
+  earlier, RequestBoundary.request (fundamental, path: "/practice/begin", requestId, session)
+then
+  ReferencePhotoBinning.request (day, fundamental)
+```
+
+### practice.practicing.Begin#3
+
+Authored path: `practice.practicing.Begin`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+
+```reaction
+when ReferencePhotoBinning.request (day, fundamental, credit, image, source), asked by practice.practicing.Begin#2
+where
+  earlier, Sessioning.use (session, subject: artist), asked by practice.practicing.Begin
+then
+  Practicing.begin (artist, credit, fundamental, image, source)
+```
+
+### practice.practicing.Begin#4
+
+Authored path: `practice.practicing.Begin`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 13.
+
+```reaction
+when Practicing.begin (artist, credit, fundamental, image, source, started, startedAt), asked by practice.practicing.Begin#3
+where
+  earlier, RequestBoundary.request (fundamental, path: "/practice/begin", requestId, session)
+then
+  RequestBoundary.respond (credit, fundamental, image, requestId, source, started, startedAt)
+```
+
+### practice.practicing.Current
+
+Authored path: `practice.practicing.Current`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 12.
+
+```reaction
+when RequestBoundary.request (path: "/practice/current", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.practicing.Current#2
+
+Authored path: `practice.practicing.Current`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 3.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 12.
+
+```reaction
+when Sessioning.use (session, subject: artist), asked by practice.practicing.Current
+where
+  Practicing._current (artist) has (credit, fundamental, image, practicing, source, started, startedAt)
+  earlier, RequestBoundary.request (path: "/practice/current", requestId, session)
+then
+  RequestBoundary.respond (credit, fundamental, image, practicing, requestId, source, started, startedAt)
+```
+
+### practice.practicing.Discard
+
+Authored path: `practice.practicing.Discard`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+
+```reaction
+when RequestBoundary.request (path: "/practice/discard", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.practicing.Discard#2
+
+Authored path: `practice.practicing.Discard`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+
+```reaction
+when Sessioning.use (session, subject: artist), asked by practice.practicing.Discard
+then
+  TimeLapsing.abandon (owner: artist)
+```
+
+### practice.practicing.Discard#3
+
+Authored path: `practice.practicing.Discard`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+
+```reaction
+when TimeLapsing.abandon (owner: artist), asked by practice.practicing.Discard#2
+then
+  Practicing.end (artist)
+```
+
+### practice.practicing.Discard#4
+
+Authored path: `practice.practicing.Discard`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 15.
+
+```reaction
+when Practicing.end (artist), asked by practice.practicing.Discard#3
+where
+  earlier, RequestBoundary.request (path: "/practice/discard", requestId, session)
+then
+  RequestBoundary.respond (requestId)
+```
+
+### practice.practicing.Start
+
+Authored path: `practice.practicing.Start`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 5.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 14.
+
+```reaction
+when RequestBoundary.request (path: "/practice/start", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### practice.practicing.Start#2
+
+Authored path: `practice.practicing.Start`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 5.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 14.
+
+```reaction
+when Sessioning.use (session, subject: artist), asked by practice.practicing.Start
+where
+  instant is the current flow's instant
+then
+  Practicing.start (artist, instant)
+```
+
+### practice.practicing.Start#3
+
+Authored path: `practice.practicing.Start`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 5.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 14.
+
+```reaction
+when Practicing.start (artist, instant, startedAt), asked by practice.practicing.Start#2
+where
+  earlier, RequestBoundary.request (path: "/practice/start", requestId, session)
+then
+  RequestBoundary.respond (requestId, startedAt)
+```
+
+### practice.practicing.SubmitEndsPractice
+
+Authored path: `practice.practicing.SubmitEndsPractice`.
+- Covered by [Drawing session](../design/compositions/practice/practicing.md), line 7.
+
+```reaction
+when TimeLapsing.complete (owner)
+then
+  Practicing.end (artist: owner)
 ```
 
 ### practice.references.Access
@@ -1937,6 +2145,10 @@ not listed here have no explicit input contract.
 - `/posts/status` — requires `index`, `session`
 - `/posts/timelapse` — requires `after`, `post`, `session`
 - `/posts/unlike` — requires `post`, `session`
+- `/practice/begin` — requires `fundamental`, `session`
+- `/practice/current` — requires `session`
+- `/practice/discard` — requires `session`
+- `/practice/start` — requires `session`
 - `/references/access` — requires `session`
 - `/references/add` — requires `credit`, `key`, `session`, `source`, `tags`
 - `/references/appoint` — requires `session`, `username`

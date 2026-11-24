@@ -351,6 +351,52 @@ export type RedrawWire = {
     output: Record<string, never>;
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_LIKED" | "NOT_SIGNED_IN" };
   };
+  "/practice/begin": {
+    input: {
+      "fundamental": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>[0], ["fundamental"]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>[0], ["fundamental"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["fundamental"]>]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "credit": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>[0], ["credit"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["credit"]>]>>;
+      "fundamental": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>[0], ["fundamental"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["fundamental"]>]>>;
+      "image": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>[0], ["image"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["image"]>]>>;
+      "source": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>[0], ["source"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["source"]>]>>;
+      "started": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["started"]>>;
+      "startedAt": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["startedAt"]>>;
+    };
+    error: { error: AppWideError | "INVALID_ATTEMPT" | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/practice/current": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "credit": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["credit"]>>;
+      "fundamental": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["fundamental"]>>;
+      "image": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["image"]>>;
+      "practicing": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["practicing"]>>;
+      "source": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["source"]>>;
+      "started": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["started"]>>;
+      "startedAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["startedAt"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/practice/discard": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/practice/start": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "startedAt": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["start"]>>, ["startedAt"]>>;
+    };
+    error: { error: AppWideError | "INVALID_ATTEMPT" | "INVALID_INPUT" | "NOT_PRACTICING" | "NOT_SIGNED_IN" };
+  };
   "/references/access": {
     input: {
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
@@ -730,6 +776,45 @@ export type RedrawWireHttp = {
     };
     output: Record<string, never>;
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/practice/begin": {
+    input: {
+      "fundamental": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ReferencePhotoBinning"]["request"]>[0], ["fundamental"]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>[0], ["fundamental"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["fundamental"]>]>]>>;
+    };
+    output: {
+      "credit": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>[0], ["credit"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["credit"]>]>>;
+      "fundamental": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>[0], ["fundamental"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["fundamental"]>]>>;
+      "image": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>[0], ["image"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["image"]>]>>;
+      "source": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>[0], ["source"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["source"]>]>>;
+      "started": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["started"]>>;
+      "startedAt": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["begin"]>>, ["startedAt"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/practice/current": {
+    input: Record<string, never>;
+    output: {
+      "credit": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["credit"]>>;
+      "fundamental": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["fundamental"]>>;
+      "image": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["image"]>>;
+      "practicing": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["practicing"]>>;
+      "source": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["source"]>>;
+      "started": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["started"]>>;
+      "startedAt": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["_current"]>>>, ["startedAt"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/practice/discard": {
+    input: Record<string, never>;
+    output: Record<string, never>;
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/practice/start": {
+    input: Record<string, never>;
+    output: {
+      "startedAt": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Practicing"]["start"]>>, ["startedAt"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
   "/references/access": {
     input: Record<string, never>;

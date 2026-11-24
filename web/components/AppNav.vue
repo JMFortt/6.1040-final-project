@@ -2,7 +2,7 @@
 export type Page = "home" | "draw" | "timelapses" | "community" | "references";
 
 defineProps<{ current: Page; username: string; locked?: boolean; references?: boolean }>();
-const emit = defineEmits<{ navigate: [page: Page]; practice: []; help: []; signOut: [] }>();
+const emit = defineEmits<{ navigate: [page: Page]; help: []; signOut: [] }>();
 
 const pages: { id: Page; label: string }[] = [
   { id: "home", label: "Home" },
@@ -24,7 +24,6 @@ const leaveTitle = "Finish saving this artwork before leaving.";
       </ul>
     </nav>
     <div class="actions">
-      <button class="practice" @click="emit('practice')">Start Daily Practice</button>
       <button v-if="references" class="quiet" :class="{ current: current === 'references' }" :disabled="locked" :title="locked ? leaveTitle : undefined" :aria-current="current === 'references' ? 'page' : undefined" @click="emit('navigate', 'references')">References</button>
       <button class="quiet" @click="emit('help')">Help</button>
       <span class="me" :title="`Signed in as ${username}`">{{ username }}</span>
@@ -45,7 +44,6 @@ ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
 .tab:hover { color: #27372d; }
 .tab.active { color: #27372d; border-bottom-color: #465a3d; font-weight: 600; }
 .actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-.practice { background: #465a3d; color: white; border-color: #465a3d; }
 .quiet { background: none; border-color: transparent; color: #57605a; }
 .quiet:hover, .quiet.current { border-color: #d5dcc7; }
 .quiet.current { font-weight: 600; color: #27372d; }

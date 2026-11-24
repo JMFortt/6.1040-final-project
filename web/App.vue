@@ -72,7 +72,7 @@ function closeWelcome() {
 <template>
   <template v-if="me && !returningFromCommons">
     <div class="app" :class="{ draw: screen === 'draw' }">
-      <AppNav :current="screen" :username="me.username" :locked="drawBusy" :references="references" @navigate="screen = $event" @practice="screen = 'draw'" @help="welcomeOpen = true" @sign-out="leave" />
+      <AppNav :current="screen" :username="me.username" :locked="drawBusy" :references="references" @navigate="screen = $event" @help="welcomeOpen = true" @sign-out="leave" />
       <DrawingWorkspace v-if="screen === 'draw'" :key="me.username" @timelapses="screen = 'timelapses'" @busy="drawBusy = $event" />
       <HomeDashboard v-else-if="screen === 'home'" :key="me.username" :username="me.username" @practice="screen = 'draw'" @timelapses="screen = 'timelapses'" @artists="screen = 'community'" />
       <TimelapseGallery v-else-if="screen === 'timelapses'" :key="me.username" :username="me.username" @practice="screen = 'draw'" />

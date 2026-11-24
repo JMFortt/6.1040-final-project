@@ -5,10 +5,25 @@ import { StrokeRenderer } from "../drawing/renderer.ts";
 import { useCanvasHistory } from "../composables/useCanvasHistory.ts";
 import ToolIcon from "./ToolIcon.vue";
 import ReferencePanel from "./ReferencePanel.vue";
-import { practiceReference } from "../drawing/reference.ts";
+import { api } from "../client.ts";
+
+/** The practice runs for 15 minutes, starting at the first stroke. */
+const PRACTICE_MS = 15 * 60 * 1000;
+const FUNDAMENTALS = ["anatomy", "perspective", "color", "lighting", "form"] as const;
+const label = (tag: string) => tag.slice(0, 1).toUpperCase() + tag.slice(1);
 
 const emit = defineEmits<{ timelapses: []; busy: [locked: boolean] }>();
-const submittedIndex = ref<number | null>(null);
+const practicing = ref(false);
+const sessionReady = ref(false);
+const sessionError = ref("");
+const choosing = ref("");
+const chooseError = ref("");
+const reference = ref<{ source: string; credit: string } | null>(null);
+const startedAt = ref(0);
+const ticking = ref(Date.now());
+const discarding = ref(false);
+let clockTimer: number | undefined;
+let arming = false;
 const canvas = ref<HTMLCanvasElement>();
 const stage = ref<HTMLDivElement>();
 const viewX = ref(0);
@@ -68,7 +83,13 @@ const storage = useCanvasHistory(async (strokes, mode = "replace") => {
     await renderer.restore([...strokes, ...pendingStrokes], { quiet });
   } finally { if (!quiet) restoring.value = false; }
 });
-const { pending, saved, canUndo, canRedo, saving, loading, error, unsaved, submitting, submissionPending, blocked, rejectedKey } = storage;
+const { pending, saved, canUndo, canRedo, saving, loading, error, unsaved, submitting, submissionPending, blocked, rejectedKey, abandon } = storage;
+const remaining = computed(() => startedAt.value ? Math.min(PRACTICE_MS, Math.max(0, startedAt.value + PRACTICE_MS - ticking.value)) : PRACTICE_MS);
+const clockLabel = computed(() => {
+  const seconds = Math.ceil(remaining.value / 1000);
+  return `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, "0")}`;
+});
+const locked = computed(() => practicing.value && startedAt.value > 0 && remaining.value <= 0);
 const navigationDisabled = computed(() => unsaved.value || drawing.value || finishing.value || saving.value || submitting.value || blocked.value);
 watch(navigationDisabled, (locked) => emit("busy", locked), { immediate: true });
 const status = computed(() => loading.value || restoring.value ? "Restoring canvas…"
@@ -77,6 +98,7 @@ const status = computed(() => loading.value || restoring.value ? "Restoring canv
   : saved.value ? "Artwork saved" : "Ready to draw");
 
 function chooseTool(next: Tool) {
+  if (locked.value) return;
   toolSize[tool.value] = size.value;
   panMode.value = false;
   if (next === "eraser") picking.value = false;
@@ -160,7 +182,7 @@ function overSheet(event: PointerEvent): boolean {
 }
 
 function hover(event: PointerEvent) {
-  if (panMode.value || picking.value || !overSheet(event)) {
+  if (locked.value || panMode.value || picking.value || !overSheet(event)) {
     cursor.value = null;
     return;
   }
@@ -179,7 +201,7 @@ function startStroke(event: PointerEvent) {
     cursor.value = null;
     return;
   }
-  if (picking.value && event.isPrimary && event.button === 0) {
+  if (picking.value && !locked.value && event.isPrimary && event.button === 0) {
     event.preventDefault();
     if (overSheet(event) && ready.value && !restoring.value) {
       const picked = readCanvasColor(event);
@@ -189,8 +211,8 @@ function startStroke(event: PointerEvent) {
     return;
   }
   if (panMode.value || pan || zooming || !overSheet(event)) return;
+  if (!practicing.value || locked.value || discarding.value) return;
   if (!ready.value || restoring.value || submitting.value || submissionPending.value || blocked.value || rejectedKey.value || finishing.value || active || (event.type === "pointerdown" ? event.button !== 0 : event.buttons !== 1) || !event.isPrimary) return;
-  submittedIndex.value = null;
   event.preventDefault();
   stage.value!.setPointerCapture(event.pointerId);
   active = {
@@ -201,6 +223,7 @@ function startStroke(event: PointerEvent) {
   drawing.value = true;
   renderer!.begin(active.stroke);
   appendPoint(event);
+  if (!startedAt.value) void armClock();
 }
 
 function appendPoint(event: PointerEvent) {
@@ -272,19 +295,84 @@ async function retry() {
 }
 
 async function submitDrawing() {
-  if (drawing.value || finishing.value || restoring.value || !ready.value || !renderer) return;
+  if (!practicing.value || drawing.value || finishing.value || restoring.value || discarding.value || !ready.value || !renderer) return;
   await finishPromise;
   const index = await storage.submit(() => renderer!.exportWebp());
   if (index !== null) {
-    submittedIndex.value = index;
     cursor.value = null;
     panMode.value = false;
+    await loadSession();
     await setZoom("fit");
   }
 }
 
+function applySession(result: { practicing: boolean; source: string; credit: string; started: boolean; startedAt: number }) {
+  practicing.value = result.practicing;
+  reference.value = result.practicing ? { source: result.source, credit: result.credit } : null;
+  startedAt.value = result.practicing && result.started ? result.startedAt : 0;
+}
+
+async function loadSession() {
+  sessionError.value = "";
+  try {
+    const result = await api.practice.current();
+    if (disposed) return;
+    if ("error" in result) {
+      sessionError.value = result.error === "UNAUTHORIZED" ? "Your session ended. Sign in again." : "Could not load your practice.";
+      practicing.value = false;
+      return;
+    }
+    applySession(result);
+    sessionReady.value = true;
+  } catch {
+    if (!disposed) sessionError.value = "Could not load your practice.";
+  }
+}
+
+async function choose(fundamental: string) {
+  chooseError.value = "";
+  choosing.value = fundamental;
+  try {
+    const result = await api.practice.begin({ fundamental });
+    if (disposed) return;
+    if ("error" in result) {
+      chooseError.value = result.error === "INVALID_REQUEST"
+        ? "No reference is available for that fundamental today."
+        : result.error === "UNAUTHORIZED" ? "Your session ended. Sign in again." : "Could not start this practice. Try again.";
+      return;
+    }
+    applySession({ practicing: true, source: result.source, credit: result.credit, started: result.started, startedAt: result.startedAt });
+  } catch {
+    if (!disposed) chooseError.value = "Could not start this practice. Try again.";
+  } finally { choosing.value = ""; }
+}
+
+async function armClock() {
+  if (arming || startedAt.value || !practicing.value) return;
+  arming = true;
+  try {
+    const result = await api.practice.start();
+    if (!disposed && !("error" in result)) startedAt.value = result.startedAt;
+  } finally { arming = false; }
+}
+
+async function discardDrawing() {
+  if (!practicing.value || drawing.value || finishing.value || discarding.value) return;
+  if (!window.confirm("Discard this drawing? It will not be saved.")) return;
+  discarding.value = true;
+  try {
+    const cleared = await abandon();
+    if (cleared) {
+      cursor.value = null;
+      panMode.value = false;
+      picking.value = false;
+      await loadSession();
+    }
+  } finally { discarding.value = false; }
+}
+
 function reviseHistory(kind: "undo" | "redo") {
-  if (!ready.value || drawing.value || finishing.value || restoring.value || panning.value) return;
+  if (locked.value || !ready.value || drawing.value || finishing.value || restoring.value || panning.value) return;
   if (kind === "undo" ? !canUndo.value : !canRedo.value) return;
   picking.value = false;
   void (kind === "undo" ? storage.undo() : storage.redo());
@@ -295,6 +383,7 @@ function keydown(event: KeyboardEvent) {
     picking.value = false;
     return;
   }
+  if (locked.value || !practicing.value) return;
   const typing = event.target instanceof HTMLElement && event.target.matches("input, select, textarea, [contenteditable]");
   if (!typing && !event.altKey && !event.shiftKey && (event.ctrlKey || event.metaKey)) {
     const key = event.key.toLowerCase();
@@ -327,12 +416,15 @@ onMounted(async () => {
   });
   resize.observe(stage.value!);
   window.addEventListener("keydown", keydown);
+  clockTimer = window.setInterval(() => { ticking.value = Date.now(); }, 200);
   const loaded = await storage.load();
   if (!disposed) ready.value = loaded;
+  await loadSession();
 });
 
 onBeforeUnmount(() => {
   disposed = true;
+  if (clockTimer !== undefined) window.clearInterval(clockTimer);
   resize?.disconnect();
   renderer?.dispose();
   window.removeEventListener("keydown", keydown);
@@ -341,19 +433,20 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="studio">
-    <aside class="tools-panel" aria-label="Drawing tools">
+    <div class="sheet" :class="{ veiled: !practicing }">
+    <aside class="tools-panel" :class="{ locked }" aria-label="Drawing tools">
       <div class="history-actions" role="group" aria-label="Undo and redo">
-        <button type="button" class="history" title="Undo (Ctrl+Z)" :disabled="!canUndo || !ready || drawing || finishing || restoring || panning" @click="reviseHistory('undo')">
+        <button type="button" class="history" title="Undo (Ctrl+Z)" :disabled="locked || !canUndo || !ready || drawing || finishing || restoring || panning" @click="reviseHistory('undo')">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H12" /></svg>
           <span class="tool-label">Undo</span>
         </button>
-        <button type="button" class="history" title="Redo (Ctrl+Y)" :disabled="!canRedo || !ready || drawing || finishing || restoring || panning" @click="reviseHistory('redo')">
+        <button type="button" class="history" title="Redo (Ctrl+Y)" :disabled="locked || !canRedo || !ready || drawing || finishing || restoring || panning" @click="reviseHistory('redo')">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H12" /></svg>
           <span class="tool-label">Redo</span>
         </button>
       </div>
       <div class="tool-list" role="group" aria-label="Choose a drawing tool">
-        <button v-for="entry in tools" :key="entry.id" class="tool" :class="{ selected: tool === entry.id }" :aria-pressed="tool === entry.id" :title="`${entry.name} (${entry.key})`" @click="chooseTool(entry.id)">
+        <button v-for="entry in tools" :key="entry.id" class="tool" :class="{ selected: tool === entry.id }" :aria-pressed="tool === entry.id" :title="`${entry.name} (${entry.key})`" :disabled="locked" @click="chooseTool(entry.id)">
           <span class="tool-icon"><ToolIcon :tool="entry.id" /></span>
           <span class="tool-label">{{ entry.name }}</span><kbd>{{ entry.key }}</kbd>
         </button>
@@ -361,18 +454,18 @@ onBeforeUnmount(() => {
 
       <section class="settings" aria-label="Brush settings">
         <div class="setting-title"><label for="brush-size">Size</label><output for="brush-size">{{ size }} <span>px</span><span class="hotkeys" aria-hidden="true"><kbd>[</kbd><span>/</span><kbd>]</kbd></span></output></div>
-        <input id="brush-size" v-model.number="size" type="range" min="1" max="100" :style="{ '--range': `${size}%` }" />
+        <input id="brush-size" v-model.number="size" type="range" min="1" max="100" :disabled="locked" :style="{ '--range': `${size}%` }" />
         <div class="setting-title opacity-title"><label for="brush-opacity">Opacity</label><output for="brush-opacity">{{ opacity }}<span>%</span><span class="hotkeys" aria-hidden="true"><kbd>↓</kbd><span>/</span><kbd>↑</kbd></span></output></div>
-        <input id="brush-opacity" v-model.number="opacity" type="range" min="1" max="100" :style="{ '--range': `${opacity}%` }" />
+        <input id="brush-opacity" v-model.number="opacity" type="range" min="1" max="100" :disabled="locked" :style="{ '--range': `${opacity}%` }" />
       </section>
 
       <section class="color-section" aria-label="Ink color" :class="{ inactive: tool === 'eraser' }">
         <div class="color-row">
-          <label class="color-picker" for="ink-color"><input id="ink-color" v-model="color" type="color" :disabled="tool === 'eraser'" @input="picking = false" /><span>{{ color.toUpperCase() }}</span></label>
-          <button type="button" class="eyedropper" :aria-pressed="picking" aria-label="Pick a color from the canvas (C)" title="Pick a color from the canvas (C)" :disabled="tool === 'eraser' || !ready || restoring || drawing || panning" @click="togglePick"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M76.45 45.5C78.88 47.93 80.88 53.72 75.5 54.08C73.17 54.24 72.47 52.62 70.5 52.02C61.93 60 46.47 78 36.97 82.8C33.68 84.47 30.16 84.11 26.82 85.26C18.78 88.05 17.46 97.1 9.27 85.91C5.95 81.38 13.39 77.25 14.82 73.31C16.03 69.96 15.63 66.3 17.16 62.98C20.55 55.66 28.66 49.69 34.36 44.19C36.97 41.67 48.27 32.29 48.67 29.5C42.46 23.87 48.38 17.56 54.5 23.55C60.78 19.76 64.16 11.75 71.37 9.2C83.16 5.04 95.03 16.78 90.79 28.61C88.21 35.82 80.3 39.24 76.45 45.5ZM54.5 36.24C48.3 43.09 41.23 49.33 34.57 55.73C31.41 58.76 27.39 61.85 25.19 65.69C23.82 68.1 23.79 70.81 23.25 73.48C22.92 75.12 21.4 77.56 21.5 78.97C23.19 78.72 24.62 77.61 26.27 77.14C28.21 76.6 30.4 76.56 32.28 75.8C39.69 72.78 48.21 61.91 54.11 56.27C57.37 53.15 62.6 49.53 64.6 45.5C61.24 42.41 57.87 39.33 54.5 36.24Z" fill="currentColor" fill-rule="evenodd" stroke="currentColor" stroke-width="0.25" stroke-linejoin="round" /></svg><kbd>C</kbd></button>
+          <label class="color-picker" for="ink-color"><input id="ink-color" v-model="color" type="color" :disabled="locked || tool === 'eraser'" @input="picking = false" /><span>{{ color.toUpperCase() }}</span></label>
+          <button type="button" class="eyedropper" :aria-pressed="picking" aria-label="Pick a color from the canvas (C)" title="Pick a color from the canvas (C)" :disabled="locked || tool === 'eraser' || !ready || restoring || drawing || panning" @click="togglePick"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M76.45 45.5C78.88 47.93 80.88 53.72 75.5 54.08C73.17 54.24 72.47 52.62 70.5 52.02C61.93 60 46.47 78 36.97 82.8C33.68 84.47 30.16 84.11 26.82 85.26C18.78 88.05 17.46 97.1 9.27 85.91C5.95 81.38 13.39 77.25 14.82 73.31C16.03 69.96 15.63 66.3 17.16 62.98C20.55 55.66 28.66 49.69 34.36 44.19C36.97 41.67 48.27 32.29 48.67 29.5C42.46 23.87 48.38 17.56 54.5 23.55C60.78 19.76 64.16 11.75 71.37 9.2C83.16 5.04 95.03 16.78 90.79 28.61C88.21 35.82 80.3 39.24 76.45 45.5ZM54.5 36.24C48.3 43.09 41.23 49.33 34.57 55.73C31.41 58.76 27.39 61.85 25.19 65.69C23.82 68.1 23.79 70.81 23.25 73.48C22.92 75.12 21.4 77.56 21.5 78.97C23.19 78.72 24.62 77.61 26.27 77.14C28.21 76.6 30.4 76.56 32.28 75.8C39.69 72.78 48.21 61.91 54.11 56.27C57.37 53.15 62.6 49.53 64.6 45.5C61.24 42.41 57.87 39.33 54.5 36.24Z" fill="currentColor" fill-rule="evenodd" stroke="currentColor" stroke-width="0.25" stroke-linejoin="round" /></svg><kbd>C</kbd></button>
         </div>
         <div class="swatches" role="group" aria-label="Color palette">
-          <button v-for="swatch in palette" :key="swatch" :style="{ background: swatch }" :class="{ chosen: color === swatch }" :aria-label="`Use color ${swatch}`" :aria-pressed="color === swatch" :disabled="tool === 'eraser'" @click="color = swatch; picking = false"><span v-if="color === swatch" :style="{ color: swatch === '#ffffff' ? '#252b25' : '#fff' }">✓</span></button>
+          <button v-for="swatch in palette" :key="swatch" :style="{ background: swatch }" :class="{ chosen: color === swatch }" :aria-label="`Use color ${swatch}`" :aria-pressed="color === swatch" :disabled="locked || tool === 'eraser'" @click="color = swatch; picking = false"><span v-if="color === swatch" :style="{ color: swatch === '#ffffff' ? '#252b25' : '#fff' }">✓</span></button>
         </div>
       </section>
     </aside>
@@ -392,7 +485,7 @@ onBeforeUnmount(() => {
           <button :aria-pressed="panMode" :disabled="drawing || panning" title="Drag to move around the canvas" @click="panMode = !panMode; picking = false; cursor = null">Pan</button>
         </div>
       </div>
-      <div ref="stage" class="canvas-stage" :class="{ 'pan-mode': panMode, panning, picking }" @wheel.prevent="wheelZoom" @pointerdown="startStroke" @pointermove="continueStroke" @pointerup="endStroke" @pointercancel="endStroke" @lostpointercapture="endStroke" @pointerleave="cursor = null">
+      <div ref="stage" class="canvas-stage" :class="{ 'pan-mode': panMode, panning, picking, locked }" @wheel.prevent="wheelZoom" @pointerdown="startStroke" @pointermove="continueStroke" @pointerup="endStroke" @pointercancel="endStroke" @lostpointercapture="endStroke" @pointerleave="cursor = null">
         <div class="canvas-position" :style="{ width: `${CANVAS_WIDTH * scale}px`, height: `${CANVAS_HEIGHT * scale}px`, transform: `translate(${viewX}px, ${viewY}px)` }">
           <canvas ref="canvas" class="drawing-canvas" :class="{ unavailable: !ready || restoring }" aria-label="Drawing canvas. Use a mouse, touch, or pressure-sensitive pen to draw." @contextmenu.prevent />
           <div v-if="cursor && ready && !restoring" class="brush-cursor" :style="{ left: `${cursor.x}px`, top: `${cursor.y}px`, width: `${Math.max(4, size * scale)}px`, height: `${Math.max(4, size * scale)}px` }" />
@@ -402,14 +495,15 @@ onBeforeUnmount(() => {
       </div>
       </div>
       <div class="submission-bar">
-        <p v-if="submittedIndex" role="status">Artwork #{{ submittedIndex }} saved. Your canvas is ready for a new artwork.</p>
-        <p v-else>Submit saves this artwork and starts a blank canvas.</p>
-        <div><button :disabled="navigationDisabled" :title="navigationDisabled ? 'Finish saving this artwork before leaving.' : undefined" @click="emit('timelapses')">View saved artworks</button>
-          <button class="submit" :disabled="!ready || !saved || pending.length > 0 || saving || submitting || drawing || finishing || restoring || blocked" @click="submitDrawing">{{ submitting ? 'Submitting…' : submissionPending ? 'Retry submission' : 'Submit artwork' }}</button></div>
+        <p>{{ locked ? "Time is up. Save this artwork, or discard it." : "Save keeps this artwork. Discard gives it up." }}</p>
+        <div>
+          <button type="button" :disabled="!practicing || discarding || drawing || finishing || submitting || saving || restoring" @click="discardDrawing">{{ discarding ? "Discarding…" : "Discard" }}</button>
+          <button class="submit" type="button" :disabled="!practicing || !ready || !saved || pending.length > 0 || saving || submitting || drawing || finishing || restoring || blocked || discarding" @click="submitDrawing">{{ submitting ? "Saving…" : submissionPending ? "Retry save" : "Save artwork" }}</button>
+        </div>
       </div>
     </section>
 
-    <ReferencePanel v-bind="practiceReference" />
+    <ReferencePanel v-if="reference" :src="reference.source" :alt="reference.credit" :caption="reference.credit" />
 
     <footer class="studio-footer">
       <div class="save-status" role="status" aria-live="polite">
@@ -418,11 +512,44 @@ onBeforeUnmount(() => {
       </div>
       <div class="privacy"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 9V6a4 4 0 0 1 8 0v3 M4 9h12v9H4Z" /></svg>Your canvas is private.</div>
     </footer>
+    </div>
+    <p v-if="practicing" class="clock" :class="{ done: locked }" role="timer" aria-label="Time remaining">{{ clockLabel }}</p>
+    <section v-else class="chooser" aria-labelledby="practice-choice-title">
+      <div class="chooser-card">
+        <h2 id="practice-choice-title">Choose a fundamental</h2>
+        <p v-if="!sessionReady && !sessionError">Loading your practice…</p>
+        <template v-else-if="sessionError">
+          <p class="error" role="alert">{{ sessionError }}</p>
+          <button type="button" @click="loadSession">Retry</button>
+        </template>
+        <template v-else>
+          <p>Today's reference for that fundamental is shown beside the canvas. The 15-minute timer starts when you make the first stroke.</p>
+          <div class="choices">
+            <button v-for="item in FUNDAMENTALS" :key="item" type="button" :disabled="choosing !== ''" @click="choose(item)">{{ choosing === item ? "Starting…" : label(item) }}</button>
+          </div>
+          <p v-if="chooseError" class="error" role="alert">{{ chooseError }}</p>
+        </template>
+      </div>
+    </section>
   </main>
 </template>
 
 <style scoped>
-.studio { --ink: #27372d; --muted: #70776e; --line: #dfe2d8; --accent: #465a3d; display: grid; grid-template: minmax(0, 1fr) 38px / 248px minmax(0, 1fr); flex: 1; min-height: 0; color: var(--ink); background: #f8f9f4; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; font-size: 13px; }
+.studio { --ink: #27372d; --muted: #70776e; --line: #dfe2d8; --accent: #465a3d; position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; color: var(--ink); background: #f8f9f4; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; font-size: 13px; }
+.sheet { display: grid; grid-template: minmax(0, 1fr) 38px / 248px minmax(0, 1fr); flex: 1; min-height: 0; }
+.sheet.veiled { filter: blur(7px); pointer-events: none; user-select: none; }
+.tools-panel.locked { opacity: .45; }
+.canvas-stage.locked .drawing-canvas { cursor: default; }
+.clock { position: fixed; z-index: 30; top: 74px; left: 50%; transform: translateX(-50%); margin: 0; padding: 8px 18px; background: #fcfcf8; border: 1px solid var(--line); border-radius: 999px; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: .04em; pointer-events: none; }
+.clock.done { color: #8a3d3d; }
+.chooser { position: absolute; inset: 0; z-index: 7; display: grid; place-items: center; padding: 24px; }
+.chooser-card { width: min(100%, 420px); display: flex; flex-direction: column; gap: 14px; padding: 28px; background: white; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(39, 55, 45, 0.12); }
+.chooser-card h2 { margin: 0; font-size: 1.35rem; }
+.chooser-card p { margin: 0; color: var(--muted); line-height: 1.45; }
+.chooser-card .error { color: #8a3d3d; }
+.choices { display: grid; gap: 8px; }
+.choices button { min-height: 44px; text-align: left; padding: 10px 14px; border: 1px solid #d5dcc7; border-radius: 8px; background: white; color: var(--ink); }
+.choices button:hover:not(:disabled) { background: #f0f2e9; }
 button, select, input { font: inherit; }
 button, select { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }
@@ -504,6 +631,6 @@ input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
 .studio-footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; color: var(--muted); border-top: 1px solid var(--line); background: #fcfcf8; font-size: 10px; }
 @media (max-width: 760px) { .zoom-control button { min-width: 44px; min-height: 44px; } .eyedropper { min-width: 44px; height: 44px; } }
 @media (max-height: 780px) and (min-width: 761px) { .tool { padding-top: 9px; padding-bottom: 9px; } .settings { margin-top: 17px; padding-top: 18px; padding-bottom: 18px; } }
-@media (max-width: 1000px) { .studio { grid-template-columns: 218px minmax(0, 1fr); } .tools-panel { padding-left: 14px; padding-right: 14px; } .tool { gap: 8px; padding-left: 7px; padding-right: 7px; } .canvas-toolbar { padding-right: 16px; } }
-@media (max-width: 760px) { .studio { flex: none; grid-template: auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; } .history-actions { grid-column: 1 / -1; margin-bottom: 0; } .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 5px; } .tool { flex-direction: column; gap: 5px; padding: 8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .color-picker { margin-top: 0; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 12px 16px 0; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 360px); } .studio-footer { grid-row: 3; padding: 0 16px; } }
+@media (max-width: 1000px) { .sheet { grid-template-columns: 218px minmax(0, 1fr); } .tools-panel { padding-left: 14px; padding-right: 14px; } .tool { gap: 8px; padding-left: 7px; padding-right: 7px; } .canvas-toolbar { padding-right: 16px; } }
+@media (max-width: 760px) { .studio, .sheet { flex: none; } .sheet { grid-template: auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; } .history-actions { grid-column: 1 / -1; margin-bottom: 0; } .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 5px; } .tool { flex-direction: column; gap: 5px; padding: 8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .color-picker { margin-top: 0; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 12px 16px 0; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 360px); } .studio-footer { grid-row: 3; padding: 0 16px; } }
 </style>

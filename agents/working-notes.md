@@ -2,6 +2,16 @@
 
 Unresolved on purpose. Add a dated note when the team decides. Do not edit `deliverables/` to close one of these unless a teammate asks.
 
+## 2026-11-23 — drawing session
+
+The team asked for a practice on the Draw tab. The F3 journey's 30-minute timer and one-minute wrap-up are not what this version does.
+
+- Before an attempt, the drawing surface is blurred and the artist picks one of anatomy, perspective, color, lighting, or form. Home's Start Daily Practice opens that same page. The header no longer has that button.
+- Choosing a fundamental asks the reference bank for today's photo and stores the attempt. The 15-minute clock is shown immediately and starts when the first stroke is drawn. The start instant is stored on the attempt, so leaving the page or closing the app continues the same countdown.
+- Save artwork completes the recording, which ends the attempt. Discard removes the unfinished drawing and ends the attempt; it does not add an artwork. Either way the page returns to the fundamental list.
+- When the 15 minutes are up, new strokes and the tool bar stop. Panning and moving between pages stay available. Save and Discard are on the bar for the whole attempt, including before the clock runs out.
+- CoverageTracking is still not recorded from a submission.
+
 ## 2026-11-23 — reference bank
 
 ReferencePhotoBinning is an executable concept. The F3 deliverable is unchanged. Its two gaps are resolved as follows.
@@ -77,8 +87,8 @@ Still unnamed as concept specs, but present in the solution sketch or the user j
 - Register and return are covered by the account boilerplate. Redraw still has no product spec for posting, following, or the draw timer.
 - Posting to a reference’s board
 - Following, username search, feed filter
-- A 30-minute draw timer and a one-minute wrap-up
-- Save versus delete after a session
+- The draw timer is the 15-minute session above, with no separate wrap-up minute
+- Save versus delete after a session is Save artwork versus Discard, as above
 
 Do not invent these while building the four specified concepts.
 
