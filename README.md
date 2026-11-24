@@ -7,9 +7,11 @@ Class principles, the sync-engine stack, and notes on our design goals are in [a
 
 The mentor meeting notes for the project are available [here](mentor-meetings/mentor-meetings.md).
 
-Our problem framing deliverables are available [here](deliverables/F2.md)
+Our problem framing deliverables are available [here](deliverables/F2/F2.md)
 
 Our concept design deliverables are available [here](deliverables/F3/main.md)
+
+Our Alpha checkpoint deliverables are available [here](deliverables/F4/F4.md)
 
 ## Running the app
 
