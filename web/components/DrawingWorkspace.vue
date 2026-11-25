@@ -1,20 +1,35 @@
+<script lang="ts">
+/** A finished save stays up across tab changes until Close or Publish. Discard and early-save prompts do not. */
+let heldSave: { owner: string; index: number; thumbnail: string } | null = null;
+</script>
+
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_POINTS, parseStroke, RENDERER, type Stroke, type StrokePoint, type Tool } from "../../src/drawing/stroke.ts";
 import { StrokeRenderer } from "../drawing/renderer.ts";
 import { useCanvasHistory } from "../composables/useCanvasHistory.ts";
+import { useCoverage } from "../composables/useCoverage.ts";
+import { useSession } from "../composables/useSession.ts";
 import ToolIcon from "./ToolIcon.vue";
 import ReferencePanel from "./ReferencePanel.vue";
 import { api } from "../client.ts";
 
-/** The practice runs for 15 minutes, starting at the first stroke. */
-const PRACTICE_MS = 15 * 60 * 1000;
+/** The practice runs for 25 minutes, starting at the first stroke. */
+const PRACTICE_MS = 25 * 60 * 1000;
+/** Saving with more than a minute left asks before the artwork is finished. */
+const EARLY_SAVE_MS = 60 * 1000;
 const FUNDAMENTALS = ["anatomy", "perspective", "color", "lighting", "form"] as const;
 const label = (tag: string) => tag.slice(0, 1).toUpperCase() + tag.slice(1);
 
 const emit = defineEmits<{ timelapses: []; busy: [locked: boolean] }>();
+const { me } = useSession();
+const { rows: coverageRows, load: loadCoverage } = useCoverage();
+if (heldSave && heldSave.owner !== (me.value?.username ?? "")) heldSave = null;
+const restoredSave = heldSave;
 const practicing = ref(false);
 const sessionReady = ref(false);
+/** False until the current practice has been read, so a return to Draw does not flash the picker. */
+const sessionChecked = ref(false);
 const sessionError = ref("");
 const choosing = ref("");
 const chooseError = ref("");
@@ -22,6 +37,13 @@ const reference = ref<{ source: string; credit: string } | null>(null);
 const startedAt = ref(0);
 const ticking = ref(Date.now());
 const discarding = ref(false);
+const publishing = ref(false);
+const committing = ref(false);
+type Prompt = "discard" | "early" | "saved";
+const overlay = ref<Prompt | null>(restoredSave ? "saved" : null);
+const thumbnail = ref(restoredSave?.thumbnail ?? "");
+const savedIndex = ref<number | null>(restoredSave?.index ?? null);
+const promptError = ref("");
 let clockTimer: number | undefined;
 let arming = false;
 const canvas = ref<HTMLCanvasElement>();
@@ -90,7 +112,21 @@ const clockLabel = computed(() => {
   return `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, "0")}`;
 });
 const locked = computed(() => practicing.value && startedAt.value > 0 && remaining.value <= 0);
-const navigationDisabled = computed(() => unsaved.value || drawing.value || finishing.value || saving.value || submitting.value || blocked.value);
+const navigationDisabled = computed(() => overlay.value === "discard" || overlay.value === "early"
+  ? false
+  : unsaved.value || drawing.value || finishing.value || saving.value || submitting.value || blocked.value);
+const earlyTimeLabel = computed(() => {
+  const total = Math.max(0, Math.ceil(remaining.value / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  const secondWord = `${seconds} second${seconds === 1 ? "" : "s"}`;
+  if (minutes === 0) return secondWord;
+  const minuteWord = `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  return seconds === 0 ? minuteWord : `${minuteWord} ${secondWord}`;
+});
+const promptTitle = computed(() => overlay.value === "discard"
+  ? "Are you sure you want to discard this artwork?"
+  : overlay.value === "early" ? "Finish artwork early?" : "Artwork saved!");
 watch(navigationDisabled, (locked) => emit("busy", locked), { immediate: true });
 const status = computed(() => loading.value || restoring.value ? "Restoring canvas…"
   : submitting.value ? "Submitting artwork…"
@@ -222,6 +258,7 @@ function hover(event: PointerEvent) {
 }
 
 function startStroke(event: PointerEvent) {
+  if (overlay.value) return;
   if (event.pointerType === "mouse" && penContact) return;
   if (event.type === "pointerdown" && (panMode.value || event.button === 1) && !active && !pan && event.isPrimary) {
     if (event.button !== 0 && event.button !== 1) return;
@@ -337,21 +374,116 @@ async function endStroke(event?: PointerEvent) {
 }
 
 async function retry() {
-  if (submissionPending.value) await submitDrawing();
+  if (submissionPending.value) await commitSave();
   else if (!ready.value) ready.value = await storage.load();
   else await storage.flush();
 }
 
-async function submitDrawing() {
-  if (!practicing.value || drawing.value || finishing.value || restoring.value || discarding.value || !ready.value || !renderer) return;
-  await finishPromise;
-  const index = await storage.submit(() => renderer!.exportWebp());
-  if (index !== null) {
+function capturePreview(): string {
+  const element = canvas.value;
+  if (!element?.width || !element.height) return "";
+  const copy = document.createElement("canvas");
+  copy.width = element.width;
+  copy.height = element.height;
+  const context = copy.getContext("2d");
+  if (!context) return "";
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, copy.width, copy.height);
+  context.drawImage(element, 0, 0);
+  try { return copy.toDataURL("image/png"); } catch { return ""; }
+}
+
+function saveBusy() {
+  return !practicing.value || !ready.value || drawing.value || finishing.value || restoring.value || discarding.value
+    || submitting.value || saving.value || pending.value.length > 0 || blocked.value || (!saved.value && !submissionPending.value);
+}
+
+function askSave() {
+  if (committing.value || saveBusy() || overlay.value) return;
+  promptError.value = "";
+  thumbnail.value = capturePreview();
+  if (!submissionPending.value && remaining.value > EARLY_SAVE_MS) {
+    overlay.value = "early";
+    return;
+  }
+  void commitSave();
+}
+
+function keepDrawing() {
+  if (submitting.value || committing.value) return;
+  overlay.value = null;
+}
+
+async function confirmEarly() {
+  if (submitting.value || committing.value || discarding.value) return;
+  await commitSave();
+}
+
+async function commitSave() {
+  if (committing.value || saveBusy() || !renderer) return;
+  committing.value = true;
+  promptError.value = "";
+  const preview = thumbnail.value || capturePreview();
+  try {
+    await finishPromise;
+    const index = await storage.submit(() => renderer!.exportWebp());
+    const owner = me.value?.username ?? "";
+    if (index === null) {
+      if (!disposed && overlay.value === "early") promptError.value = error.value || "Could not save this artwork. Try again.";
+      return;
+    }
+    heldSave = { owner, index, thumbnail: preview };
+    if (disposed) return;
+    savedIndex.value = index;
+    thumbnail.value = preview;
     cursor.value = null;
     panMode.value = false;
+    picking.value = false;
+    overlay.value = "saved";
+    practicing.value = false;
+    reference.value = null;
+    startedAt.value = 0;
     await loadSession();
-    await setZoom("fit");
-  }
+    if (!disposed) await setZoom("fit");
+  } finally { committing.value = false; }
+}
+
+function finishSaved() {
+  heldSave = null;
+  savedIndex.value = null;
+  overlay.value = null;
+  practicing.value = false;
+  reference.value = null;
+  startedAt.value = 0;
+}
+
+function closeSaved() {
+  if (publishing.value) return;
+  finishSaved();
+}
+
+async function publishSaved() {
+  if (publishing.value || savedIndex.value === null) return;
+  publishing.value = true;
+  promptError.value = "";
+  try {
+    const result = await api.posts.publish({ index: savedIndex.value });
+    if (disposed) return;
+    if ("error" in result && result.error !== "CONFLICT") {
+      promptError.value = result.error === "UNAUTHORIZED"
+        ? "Your session ended. Sign in again."
+        : "Could not publish this artwork. Try again.";
+      return;
+    }
+    finishSaved();
+  } catch {
+    if (!disposed) promptError.value = "Could not publish this artwork. Try again.";
+  } finally { if (!disposed) publishing.value = false; }
+}
+
+function onPromptEntered(element: Element) {
+  const name = overlay.value === "discard" ? "cancel" : overlay.value === "early" ? "keep" : "close";
+  element.querySelector<HTMLButtonElement>(`[data-prompt="${name}"]`)?.focus();
 }
 
 function applySession(result: { practicing: boolean; source: string; credit: string; started: boolean; startedAt: number }) {
@@ -360,8 +492,20 @@ function applySession(result: { practicing: boolean; source: string; credit: str
   startedAt.value = result.practicing && result.started ? result.startedAt : 0;
 }
 
+function practiceCount(fundamental: string): string {
+  const row = coverageRows.value.find((entry) => entry.fundamental === fundamental);
+  return row ? String(row.count) : "";
+}
+
+function practiceLabel(fundamental: string): string {
+  const name = choosing.value === fundamental ? "Starting" : label(fundamental);
+  const count = practiceCount(fundamental);
+  return count === "" ? name : `${name}, practiced ${count} ${count === "1" ? "time" : "times"}`;
+}
+
 async function loadSession() {
   sessionError.value = "";
+  void loadCoverage();
   try {
     const result = await api.practice.current();
     if (disposed) return;
@@ -374,6 +518,8 @@ async function loadSession() {
     sessionReady.value = true;
   } catch {
     if (!disposed) sessionError.value = "Could not load your practice.";
+  } finally {
+    if (!disposed) sessionChecked.value = true;
   }
 }
 
@@ -404,19 +550,43 @@ async function armClock() {
   } finally { arming = false; }
 }
 
-async function discardDrawing() {
+function askDiscard() {
+  if (!practicing.value || drawing.value || finishing.value || discarding.value || submitting.value || saving.value || restoring.value || overlay.value) return;
+  // A blank canvas has nothing to lose, so skip the confirmation.
+  if (!saved.value && pending.value.length === 0) {
+    void confirmDiscard();
+    return;
+  }
+  promptError.value = "";
+  thumbnail.value = capturePreview();
+  overlay.value = "discard";
+}
+
+function cancelDiscard() {
+  if (discarding.value) return;
+  overlay.value = null;
+}
+
+async function confirmDiscard() {
   if (!practicing.value || drawing.value || finishing.value || discarding.value) return;
-  if (!window.confirm("Discard this drawing? It will not be saved.")) return;
   discarding.value = true;
+  promptError.value = "";
   try {
     const cleared = await abandon();
-    if (cleared) {
-      cursor.value = null;
-      panMode.value = false;
-      picking.value = false;
-      await loadSession();
+    if (disposed) return;
+    if (!cleared) {
+      promptError.value = error.value || "Could not discard this drawing. Try again.";
+      return;
     }
-  } finally { discarding.value = false; }
+    cursor.value = null;
+    panMode.value = false;
+    picking.value = false;
+    overlay.value = null;
+    practicing.value = false;
+    reference.value = null;
+    startedAt.value = 0;
+    await loadSession();
+  } finally { if (!disposed) discarding.value = false; }
 }
 
 function reviseHistory(kind: "undo" | "redo") {
@@ -427,6 +597,17 @@ function reviseHistory(kind: "undo" | "redo") {
 }
 
 function keydown(event: KeyboardEvent) {
+  if (overlay.value === "discard" || overlay.value === "early") {
+    if (event.key === "Escape" && !discarding.value && !submitting.value && !committing.value) {
+      event.preventDefault();
+      overlay.value = null;
+    }
+    return;
+  }
+  if (overlay.value === "saved") {
+    if (event.key === "Escape") event.preventDefault();
+    return;
+  }
   if (event.key === "Escape") {
     picking.value = false;
     return;
@@ -495,7 +676,7 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="studio">
-    <div class="sheet" :class="{ veiled: !practicing }">
+    <div class="sheet" :class="{ veiled: sessionChecked && !practicing && !overlay, frozen: !!overlay }">
     <aside class="tools-panel" :class="{ locked }" aria-label="Drawing tools">
       <div class="history-actions" role="group" aria-label="Undo and redo">
         <button type="button" class="history" title="Undo (Ctrl+Z)" :disabled="locked || !canUndo || !ready || drawing || finishing || restoring || panning" @click="reviseHistory('undo')">
@@ -559,8 +740,8 @@ onBeforeUnmount(() => {
       <div class="submission-bar">
         <p>{{ locked ? "Time is up. Save this artwork, or discard it." : "Keep it up! You can discard or complete your drawing early." }}</p>
         <div>
-          <button type="button" :disabled="!practicing || discarding || drawing || finishing || submitting || saving || restoring" @click="discardDrawing">{{ discarding ? "Discarding…" : "Discard" }}</button>
-          <button class="submit" type="button" :disabled="!practicing || !ready || !saved || pending.length > 0 || saving || submitting || drawing || finishing || restoring || blocked || discarding" @click="submitDrawing">{{ submitting ? "Saving…" : submissionPending ? "Retry save" : "Save artwork" }}</button>
+          <button type="button" :disabled="!practicing || discarding || drawing || finishing || submitting || saving || restoring || !!overlay" @click="askDiscard">Discard</button>
+          <button class="submit" type="button" :disabled="!practicing || !ready || !saved || pending.length > 0 || saving || submitting || committing || drawing || finishing || restoring || blocked || discarding || !!overlay" @click="submissionPending ? commitSave() : askSave()">{{ submitting || committing ? "Saving…" : submissionPending ? "Retry save" : "Save artwork" }}</button>
         </div>
       </div>
     </section>
@@ -576,36 +757,91 @@ onBeforeUnmount(() => {
     </footer>
     </div>
     <p v-if="practicing" class="clock" :class="{ done: locked }" role="timer" aria-label="Time remaining">{{ clockLabel }}</p>
-    <section v-else class="chooser" :aria-busy="!sessionReady && !sessionError" aria-labelledby="practice-choice-title">
-      <div class="chooser-card">
-        <h2 id="practice-choice-title">Choose a fundamental</h2>
-        <p>Today's reference for that fundamental is shown beside the canvas. The 15-minute timer starts when you make the first stroke.</p>
-        <div class="choices">
-          <button v-for="item in FUNDAMENTALS" :key="item" type="button" :disabled="!sessionReady || choosing !== ''" @click="choose(item)">{{ choosing === item ? "Starting…" : label(item) }}</button>
+    <Transition name="panel">
+      <section v-if="sessionChecked && !practicing && overlay !== 'saved'" class="chooser" :aria-busy="!sessionReady && !sessionError" aria-labelledby="practice-choice-title">
+        <div class="chooser-card">
+          <h2 id="practice-choice-title">Choose a fundamental</h2>
+          <p>Today's reference for that fundamental is shown beside the canvas. The 25-minute timer starts when you make the first stroke.</p>
+          <div class="choices">
+            <button v-for="item in FUNDAMENTALS" :key="item" type="button" :disabled="!sessionReady || choosing !== ''" :aria-label="practiceLabel(item)" @click="choose(item)">
+              <span>{{ choosing === item ? "Starting…" : label(item) }}</span>
+              <span class="practice-count">{{ practiceCount(item) }}</span>
+            </button>
+          </div>
+          <p v-if="sessionError" class="error" role="alert">{{ sessionError }}</p>
+          <button v-if="sessionError" type="button" @click="loadSession">Retry</button>
+          <p v-if="chooseError" class="error" role="alert">{{ chooseError }}</p>
         </div>
-        <p v-if="sessionError" class="error" role="alert">{{ sessionError }}</p>
-        <button v-if="sessionError" type="button" @click="loadSession">Retry</button>
-        <p v-if="chooseError" class="error" role="alert">{{ chooseError }}</p>
+      </section>
+    </Transition>
+    <Transition name="panel" mode="out-in" @after-enter="onPromptEntered">
+      <div v-if="overlay" :key="overlay" class="scrim">
+        <section class="prompt" :class="overlay" role="dialog" aria-modal="true" aria-labelledby="prompt-title">
+          <h2 id="prompt-title">{{ promptTitle }}</h2>
+          <p v-if="overlay === 'early'">You still have {{ earlyTimeLabel }} left to keep drawing. You can't edit a drawing after you save it.</p>
+          <p v-else-if="overlay === 'saved'">Nice job! You can publish it for others or keep it private.</p>
+          <img v-if="thumbnail" class="thumb" :src="thumbnail" alt="Your artwork" />
+          <div v-else class="thumb placeholder" role="img" aria-label="Your artwork"></div>
+          <p v-if="promptError" class="error" role="alert">{{ promptError }}</p>
+          <div class="prompt-actions">
+            <template v-if="overlay === 'discard'">
+              <button type="button" data-prompt="cancel" :disabled="discarding" @click="cancelDiscard">Cancel</button>
+              <button type="button" class="danger" :disabled="discarding" @click="confirmDiscard">{{ discarding ? "Discarding…" : "Discard" }}</button>
+            </template>
+            <template v-else-if="overlay === 'early'">
+              <button type="button" data-prompt="keep" :disabled="submitting || committing" @click="keepDrawing">Keep Drawing</button>
+              <button type="button" class="primary" :disabled="submitting || committing" @click="confirmEarly">{{ submitting || committing ? "Saving…" : "Yes, I'm done" }}</button>
+            </template>
+            <template v-else>
+              <button type="button" data-prompt="close" :disabled="publishing" @click="closeSaved">Close</button>
+              <button type="button" class="primary" :disabled="publishing" @click="publishSaved">{{ publishing ? "Publishing…" : "Publish" }}</button>
+            </template>
+          </div>
+        </section>
       </div>
-    </section>
+    </Transition>
   </main>
 </template>
 
 <style scoped>
 .studio { --ink: #27372d; --muted: #70776e; --line: #dfe2d8; --accent: #465a3d; position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; color: var(--ink); background: #f8f9f4; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; font-size: 13px; }
 .sheet { display: grid; grid-template: minmax(0, 1fr) 38px / 248px minmax(0, 1fr); flex: 1; min-height: 0; }
-.sheet.veiled { filter: blur(7px); pointer-events: none; user-select: none; }
+.sheet.veiled, .sheet.frozen { pointer-events: none; user-select: none; }
+.sheet.veiled { filter: blur(7px); }
 .tools-panel.locked { opacity: .45; }
 .canvas-stage.locked .drawing-canvas { cursor: default; }
 .clock { position: fixed; z-index: 30; top: 74px; left: 50%; transform: translateX(-50%); margin: 0; padding: 8px 18px; background: #fcfcf8; border: 1px solid var(--line); border-radius: 999px; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: .04em; pointer-events: none; }
 .clock.done { color: #8a3d3d; }
+.scrim { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; padding: 24px; background: rgba(248, 249, 244, 0.2); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
+.prompt { width: min(100%, 420px); max-height: calc(100dvh - 120px); overflow: auto; display: flex; flex-direction: column; gap: 14px; padding: 28px; background: white; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(39, 55, 45, 0.12); }
+.prompt.discard { background: #fff6f4; border-color: #f0d0cb; }
+.prompt h2 { margin: 0; font-size: 1.35rem; line-height: 1.25; }
+.prompt p { margin: 0; color: var(--muted); line-height: 1.45; }
+.prompt .error { color: #8a3d3d; }
+.thumb { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: white; border: 1px solid #ead4cf; border-radius: 10px; }
+.prompt:not(.discard) .thumb { border-color: var(--line); }
+.thumb.placeholder { background: white; }
+.prompt-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.prompt-actions button { min-height: 44px; padding: 9px 14px; border: 1px solid #cbd2c1; border-radius: 8px; background: white; color: var(--ink); }
+.prompt-actions button:hover:not(:disabled) { background: #f4f1eb; }
+.prompt-actions button:active:not(:disabled) { background: #e7e2d9; }
+.prompt-actions .primary { background: var(--accent); color: white; border-color: var(--accent); }
+.prompt-actions .primary:hover:not(:disabled) { background: #3c4e34; border-color: #3c4e34; }
+.prompt-actions .primary:active:not(:disabled) { background: #314029; border-color: #314029; }
+.prompt-actions .danger { background: #a14b42; border-color: #a14b42; color: white; }
+.prompt-actions .danger:hover:not(:disabled) { background: #8d3e36; border-color: #8d3e36; }
+.prompt-actions .danger:active:not(:disabled) { background: #732f29; border-color: #732f29; }
+.prompt-actions .danger:focus-visible { outline: 2px solid #a14b42; outline-offset: 3px; }
+.panel-enter-active, .panel-leave-active { transition: opacity 0.24s ease; }
+.panel-enter-from, .panel-leave-to { opacity: 0; }
 .chooser { position: absolute; inset: 0; z-index: 7; display: grid; place-items: center; padding: 24px; }
 .chooser-card { width: min(100%, 420px); display: flex; flex-direction: column; gap: 14px; padding: 28px; background: white; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(39, 55, 45, 0.12); }
 .chooser-card h2 { margin: 0; font-size: 1.35rem; }
 .chooser-card p { margin: 0; color: var(--muted); line-height: 1.45; }
 .chooser-card .error { color: #8a3d3d; }
 .choices { display: grid; gap: 8px; }
-.choices button { min-height: 44px; text-align: left; padding: 10px 14px; border: 1px solid #d5dcc7; border-radius: 8px; background: white; color: var(--ink); }
+.choices button { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; text-align: left; padding: 10px 14px; border: 1px solid #d5dcc7; border-radius: 8px; background: white; color: var(--ink); }
+.practice-count { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
 .choices button:hover:not(:disabled) { background: #f0f2e9; }
 button, select, input { font: inherit; }
 button, select { cursor: pointer; }
@@ -616,8 +852,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .history { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; border: 1px solid transparent; border-radius: 8px; padding: 10px 6px; background: transparent; color: var(--ink); }
 .history:hover:not(:disabled) { background: #f0f2e9; }
 .history svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.tool-list { display: grid; gap: 7px; }
-.tool { display: flex; align-items: center; gap: 11px; border: 1px solid transparent; border-radius: 8px; padding: 12px 9px; background: transparent; color: var(--ink); text-align: left; width: 100%; }
+.tool-list { display: grid; gap: 5.06px; }
+.tool { display: flex; align-items: center; gap: 11px; border: 1px solid transparent; border-radius: 8px; padding: 8.3px 9px; background: transparent; color: var(--ink); text-align: left; width: 100%; }
 .tool:hover { background: #f0f2e9; }
 .tool.selected { background: #e9eddf; border-color: #d5dcc7; }
 .tool-icon { width: 24px; flex-shrink: 0; }
@@ -671,10 +907,10 @@ input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
 .canvas-stage.picking, .canvas-stage.picking .drawing-canvas { cursor: crosshair; }
 .brush-cursor { position: absolute; transform: translate(-50%, -50%); border: 1px solid #555; box-shadow: 0 0 0 1px #fff9; border-radius: 50%; pointer-events: none; }
 .canvas-loading { position: absolute; inset: 0; display: grid; place-content: center; padding: 20px; background: #ffffffd9; color: var(--muted); text-align: center; }
-.submission-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; border-top: 1px solid #d5dcc7; background: #f5f6ef; }
+.submission-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10.2px 24px; border-top: 1px solid #d5dcc7; background: #f5f6ef; }
 .submission-bar p { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
 .submission-bar > div { display: flex; flex-wrap: wrap; gap: 8px; }
-.submission-bar button { min-height: 44px; padding: 9px 12px; border: 1px solid #cbd2c1; border-radius: 7px; background: white; color: var(--ink); font-size: 11px; }
+.submission-bar button { min-height: 37.4px; padding: 7.65px 12px; border: 1px solid #cbd2c1; border-radius: 7px; background: white; color: var(--ink); font-size: 11px; }
 .submission-bar .submit { background: var(--accent); color: white; border-color: var(--accent); }
 .save-status { display: flex; align-items: center; gap: 7px; font-size: 10px; color: var(--muted); }
 .status-label { display: grid; }
@@ -686,8 +922,9 @@ input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
 .save-error { position: relative; z-index: 21; display: flex; gap: 16px; justify-content: space-between; align-items: center; margin: 8px 24px 0; padding: 10px 14px; background: #fff2dc; color: #754420; border: 1px solid #e2c7a2; border-radius: 6px; font-size: 12px; }
 .save-error button { border: 1px solid #b29d7e; padding: 5px 13px; color: inherit; border-radius: 4px; background: #fff9ef; }
 .studio-footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; color: var(--muted); border-top: 1px solid var(--line); background: #fcfcf8; font-size: 10px; }
+@media (prefers-reduced-motion: reduce) { .panel-enter-active, .panel-leave-active { transition: none; } }
 @media (max-width: 760px) { .zoom-control button { min-width: 44px; min-height: 44px; } .eyedropper { min-width: 44px; height: 44px; } }
-@media (max-height: 780px) and (min-width: 761px) { .tool { padding-top: 9px; padding-bottom: 9px; } .settings { margin-top: 17px; padding-top: 18px; padding-bottom: 18px; } }
+@media (max-height: 780px) and (min-width: 761px) { .tool { padding-top: 6.23px; padding-bottom: 6.23px; } .settings { margin-top: 17px; padding-top: 18px; padding-bottom: 18px; } }
 @media (max-width: 1000px) { .sheet { grid-template-columns: 218px minmax(0, 1fr); } .tools-panel { padding-left: 14px; padding-right: 14px; } .tool { gap: 8px; padding-left: 7px; padding-right: 7px; } .canvas-toolbar { padding-right: 16px; } }
-@media (max-width: 760px) { .studio, .sheet { flex: none; } .sheet { grid-template: auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; } .history-actions { grid-column: 1 / -1; margin-bottom: 0; } .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 5px; } .tool { flex-direction: column; gap: 5px; padding: 8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .color-picker { margin-top: 0; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 12px 16px 0; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 360px); } .studio-footer { grid-row: 3; padding: 0 16px; } }
+@media (max-width: 760px) { .studio, .sheet { flex: none; } .sheet { grid-template: auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; } .history-actions { grid-column: 1 / -1; margin-bottom: 0; } .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 3.61px; } .tool { flex-direction: column; gap: 5px; padding: 6.8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .color-picker { margin-top: 0; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 12px 16px 0; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 360px); } .studio-footer { grid-row: 3; padding: 0 16px; } }
 </style>
