@@ -852,8 +852,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .history { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; border: 1px solid transparent; border-radius: 8px; padding: 10px 6px; background: transparent; color: var(--ink); }
 .history:hover:not(:disabled) { background: #f0f2e9; }
 .history svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.tool-list { display: grid; gap: 7px; }
-.tool { display: flex; align-items: center; gap: 11px; border: 1px solid transparent; border-radius: 8px; padding: 12px 9px; background: transparent; color: var(--ink); text-align: left; width: 100%; }
+.tool-list { display: grid; gap: 5.06px; }
+.tool { display: flex; align-items: center; gap: 11px; border: 1px solid transparent; border-radius: 8px; padding: 8.3px 9px; background: transparent; color: var(--ink); text-align: left; width: 100%; }
 .tool:hover { background: #f0f2e9; }
 .tool.selected { background: #e9eddf; border-color: #d5dcc7; }
 .tool-icon { width: 24px; flex-shrink: 0; }
@@ -907,10 +907,10 @@ input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
 .canvas-stage.picking, .canvas-stage.picking .drawing-canvas { cursor: crosshair; }
 .brush-cursor { position: absolute; transform: translate(-50%, -50%); border: 1px solid #555; box-shadow: 0 0 0 1px #fff9; border-radius: 50%; pointer-events: none; }
 .canvas-loading { position: absolute; inset: 0; display: grid; place-content: center; padding: 20px; background: #ffffffd9; color: var(--muted); text-align: center; }
-.submission-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; border-top: 1px solid #d5dcc7; background: #f5f6ef; }
+.submission-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10.2px 24px; border-top: 1px solid #d5dcc7; background: #f5f6ef; }
 .submission-bar p { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
 .submission-bar > div { display: flex; flex-wrap: wrap; gap: 8px; }
-.submission-bar button { min-height: 44px; padding: 9px 12px; border: 1px solid #cbd2c1; border-radius: 7px; background: white; color: var(--ink); font-size: 11px; }
+.submission-bar button { min-height: 37.4px; padding: 7.65px 12px; border: 1px solid #cbd2c1; border-radius: 7px; background: white; color: var(--ink); font-size: 11px; }
 .submission-bar .submit { background: var(--accent); color: white; border-color: var(--accent); }
 .save-status { display: flex; align-items: center; gap: 7px; font-size: 10px; color: var(--muted); }
 .status-label { display: grid; }
@@ -924,7 +924,7 @@ input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
 .studio-footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; color: var(--muted); border-top: 1px solid var(--line); background: #fcfcf8; font-size: 10px; }
 @media (prefers-reduced-motion: reduce) { .panel-enter-active, .panel-leave-active { transition: none; } }
 @media (max-width: 760px) { .zoom-control button { min-width: 44px; min-height: 44px; } .eyedropper { min-width: 44px; height: 44px; } }
-@media (max-height: 780px) and (min-width: 761px) { .tool { padding-top: 9px; padding-bottom: 9px; } .settings { margin-top: 17px; padding-top: 18px; padding-bottom: 18px; } }
+@media (max-height: 780px) and (min-width: 761px) { .tool { padding-top: 6.23px; padding-bottom: 6.23px; } .settings { margin-top: 17px; padding-top: 18px; padding-bottom: 18px; } }
 @media (max-width: 1000px) { .sheet { grid-template-columns: 218px minmax(0, 1fr); } .tools-panel { padding-left: 14px; padding-right: 14px; } .tool { gap: 8px; padding-left: 7px; padding-right: 7px; } .canvas-toolbar { padding-right: 16px; } }
-@media (max-width: 760px) { .studio, .sheet { flex: none; } .sheet { grid-template: auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; } .history-actions { grid-column: 1 / -1; margin-bottom: 0; } .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 5px; } .tool { flex-direction: column; gap: 5px; padding: 8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .color-picker { margin-top: 0; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 12px 16px 0; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 360px); } .studio-footer { grid-row: 3; padding: 0 16px; } }
+@media (max-width: 760px) { .studio, .sheet { flex: none; } .sheet { grid-template: auto minmax(380px, 1fr) 38px / minmax(0, 1fr); } .tools-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; padding: 15px 20px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; } .history-actions { grid-column: 1 / -1; margin-bottom: 0; } .tool-list { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); gap: 3.61px; } .tool { flex-direction: column; gap: 5px; padding: 6.8px 2px; text-align: center; } .tool-icon, .tool-icon svg { width: 20px; height: 20px; } .tool-label { font-size: 10px; } .tool kbd { display: none; } .settings { margin: 0; padding: 0; border: 0; } .opacity-title { margin-top: 13px; } .setting-title { font-size: 10px; } input[type="range"] { margin-top: 12px; } .color-section { padding: 0; border: 0; } .color-picker { margin-top: 0; } .swatches { gap: 5px; margin-top: 10px; } .swatches button { width: 17px; height: 17px; } .canvas-toolbar { padding: 12px 16px 0; } .zoom-control > span { display: none; } .workspace { min-height: 390px; height: calc(100dvh - 360px); } .studio-footer { grid-row: 3; padding: 0 16px; } }
 </style>
