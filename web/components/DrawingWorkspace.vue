@@ -8,6 +8,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_POINTS, parseStroke, RENDERER, type Stroke, type StrokePoint, type Tool } from "../../src/drawing/stroke.ts";
 import { StrokeRenderer } from "../drawing/renderer.ts";
 import { useCanvasHistory } from "../composables/useCanvasHistory.ts";
+import { useCoverage } from "../composables/useCoverage.ts";
 import { useSession } from "../composables/useSession.ts";
 import ToolIcon from "./ToolIcon.vue";
 import ReferencePanel from "./ReferencePanel.vue";
@@ -22,6 +23,7 @@ const label = (tag: string) => tag.slice(0, 1).toUpperCase() + tag.slice(1);
 
 const emit = defineEmits<{ timelapses: []; busy: [locked: boolean] }>();
 const { me } = useSession();
+const { rows: coverageRows, load: loadCoverage } = useCoverage();
 if (heldSave && heldSave.owner !== (me.value?.username ?? "")) heldSave = null;
 const restoredSave = heldSave;
 const practicing = ref(false);
@@ -490,8 +492,20 @@ function applySession(result: { practicing: boolean; source: string; credit: str
   startedAt.value = result.practicing && result.started ? result.startedAt : 0;
 }
 
+function practiceCount(fundamental: string): string {
+  const row = coverageRows.value.find((entry) => entry.fundamental === fundamental);
+  return row ? String(row.count) : "";
+}
+
+function practiceLabel(fundamental: string): string {
+  const name = choosing.value === fundamental ? "Starting" : label(fundamental);
+  const count = practiceCount(fundamental);
+  return count === "" ? name : `${name}, practiced ${count} ${count === "1" ? "time" : "times"}`;
+}
+
 async function loadSession() {
   sessionError.value = "";
+  void loadCoverage();
   try {
     const result = await api.practice.current();
     if (disposed) return;
@@ -749,7 +763,10 @@ onBeforeUnmount(() => {
           <h2 id="practice-choice-title">Choose a fundamental</h2>
           <p>Today's reference for that fundamental is shown beside the canvas. The 15-second timer starts when you make the first stroke.</p>
           <div class="choices">
-            <button v-for="item in FUNDAMENTALS" :key="item" type="button" :disabled="!sessionReady || choosing !== ''" @click="choose(item)">{{ choosing === item ? "Starting…" : label(item) }}</button>
+            <button v-for="item in FUNDAMENTALS" :key="item" type="button" :disabled="!sessionReady || choosing !== ''" :aria-label="practiceLabel(item)" @click="choose(item)">
+              <span>{{ choosing === item ? "Starting…" : label(item) }}</span>
+              <span class="practice-count">{{ practiceCount(item) }}</span>
+            </button>
           </div>
           <p v-if="sessionError" class="error" role="alert">{{ sessionError }}</p>
           <button v-if="sessionError" type="button" @click="loadSession">Retry</button>
@@ -823,7 +840,8 @@ onBeforeUnmount(() => {
 .chooser-card p { margin: 0; color: var(--muted); line-height: 1.45; }
 .chooser-card .error { color: #8a3d3d; }
 .choices { display: grid; gap: 8px; }
-.choices button { min-height: 44px; text-align: left; padding: 10px 14px; border: 1px solid #d5dcc7; border-radius: 8px; background: white; color: var(--ink); }
+.choices button { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; text-align: left; padding: 10px 14px; border: 1px solid #d5dcc7; border-radius: 8px; background: white; color: var(--ink); }
+.practice-count { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
 .choices button:hover:not(:disabled) { background: #f0f2e9; }
 button, select, input { font: inherit; }
 button, select { cursor: pointer; }
