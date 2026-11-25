@@ -538,6 +538,11 @@ async function armClock() {
 
 function askDiscard() {
   if (!practicing.value || drawing.value || finishing.value || discarding.value || submitting.value || saving.value || restoring.value || overlay.value) return;
+  // A blank canvas has nothing to lose, so skip the confirmation.
+  if (!saved.value && pending.value.length === 0) {
+    void confirmDiscard();
+    return;
+  }
   promptError.value = "";
   thumbnail.value = capturePreview();
   overlay.value = "discard";
@@ -767,8 +772,8 @@ onBeforeUnmount(() => {
               <button type="button" class="danger" :disabled="discarding" @click="confirmDiscard">{{ discarding ? "Discarding…" : "Discard" }}</button>
             </template>
             <template v-else-if="overlay === 'early'">
-              <button type="button" :disabled="submitting || committing" @click="confirmEarly">{{ submitting || committing ? "Saving…" : "Yes, I'm done" }}</button>
-              <button type="button" class="primary" data-prompt="keep" :disabled="submitting || committing" @click="keepDrawing">Keep Drawing</button>
+              <button type="button" data-prompt="keep" :disabled="submitting || committing" @click="keepDrawing">Keep Drawing</button>
+              <button type="button" class="primary" :disabled="submitting || committing" @click="confirmEarly">{{ submitting || committing ? "Saving…" : "Yes, I'm done" }}</button>
             </template>
             <template v-else>
               <button type="button" data-prompt="close" :disabled="publishing" @click="closeSaved">Close</button>
