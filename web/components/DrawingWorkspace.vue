@@ -14,10 +14,10 @@ import ToolIcon from "./ToolIcon.vue";
 import ReferencePanel from "./ReferencePanel.vue";
 import { api } from "../client.ts";
 
-/** Testing length for the drawing page. The practice design is 15 minutes; this countdown is 15 seconds until that test is over. */
-const PRACTICE_MS = 15 * 1000;
-/** Saving with more time than this left asks before the artwork is finished. */
-const EARLY_SAVE_MS = 10 * 1000;
+/** The practice runs for 25 minutes, starting at the first stroke. */
+const PRACTICE_MS = 25 * 60 * 1000;
+/** Saving with more than a minute left asks before the artwork is finished. */
+const EARLY_SAVE_MS = 60 * 1000;
 const FUNDAMENTALS = ["anatomy", "perspective", "color", "lighting", "form"] as const;
 const label = (tag: string) => tag.slice(0, 1).toUpperCase() + tag.slice(1);
 
@@ -761,7 +761,7 @@ onBeforeUnmount(() => {
       <section v-if="sessionChecked && !practicing && overlay !== 'saved'" class="chooser" :aria-busy="!sessionReady && !sessionError" aria-labelledby="practice-choice-title">
         <div class="chooser-card">
           <h2 id="practice-choice-title">Choose a fundamental</h2>
-          <p>Today's reference for that fundamental is shown beside the canvas. The 15-second timer starts when you make the first stroke.</p>
+          <p>Today's reference for that fundamental is shown beside the canvas. The 25-minute timer starts when you make the first stroke.</p>
           <div class="choices">
             <button v-for="item in FUNDAMENTALS" :key="item" type="button" :disabled="!sessionReady || choosing !== ''" :aria-label="practiceLabel(item)" @click="choose(item)">
               <span>{{ choosing === item ? "Starting…" : label(item) }}</span>
