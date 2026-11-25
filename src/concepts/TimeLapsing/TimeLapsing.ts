@@ -63,6 +63,8 @@ function fold<Owner>(events: readonly EventDocument<Owner>[]): { effective: Reco
 export class TimeLapsingConcept<Owner extends string> {
   private readonly events: Collection<EventDocument<Owner>>;
   private indexes: Promise<unknown> | undefined;
+  /** Completed recordings never change, so repeated pages reuse one fold instead of rereading the log. */
+  private readonly foldedRecordings = new Map<string, RecordedUpdate[]>();
 
   constructor(database: Db, name = "TimeLapsing", private readonly clock: () => Date = () => new Date()) {
     // Keep the existing collection: update-only histories are the first draft.
@@ -254,7 +256,24 @@ export class TimeLapsingConcept<Owner extends string> {
     await this.#ready();
     const recording = await this.events.findOne({ owner, kind: "completion", index });
     if (recording?.kind !== "completion") return { found: false, updates: [] };
-    const { effective } = await this.#folded(owner, recording.start, recording.sequence - 1);
+    const effective = await this.#recordingStrokes(owner, recording);
     return { found: true, updates: effective.filter((update) => update.sequence > cursor(after)).slice(0, 50) };
+  }
+
+  async #recordingStrokes(owner: Owner, recording: CompletionDocument<Owner>) {
+    const key = `${owner}:${recording.sequence}`;
+    const hit = this.foldedRecordings.get(key);
+    if (hit) {
+      this.foldedRecordings.delete(key);
+      this.foldedRecordings.set(key, hit);
+      return hit;
+    }
+    const { effective } = await this.#folded(owner, recording.start, recording.sequence - 1);
+    if (this.foldedRecordings.size >= 4) {
+      const oldest = this.foldedRecordings.keys().next().value;
+      if (oldest !== undefined) this.foldedRecordings.delete(oldest);
+    }
+    this.foldedRecordings.set(key, effective);
+    return effective;
   }
 }
