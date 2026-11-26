@@ -88,6 +88,38 @@ We intend to build an app that:
 
 ### Agenda: topics to be discussed with time allocated to each
 
+**3:15PM - 3:30PM**: Go over recent deliverable feedback and answer any questions
+
+**3:30PM - 3:45PM**: ---
+
+**3:45PM - 4:00PM**: ---
+
+### Progress report: how last week went, alignment to plan
+
+Currently on track and finished core features last week
+
+### Design changes: what changes were made to the design since the last meeting
+
+No major changes besides expanded concepts (as discussed)
+
+### Issues: problems and issues to address, with a sentence or two explaining each
+
+N/A
+
+### Plans & decisions (completed after): plans for next week and decisions made
+
+- Short meeting, day before Thanksgiving
+
+- Should discuss potential presets for reference image locations on the drawing interface
+
+- Need to be careful of multiple upcoming deadlines
+
+- Finish developing app
+
+## 12/2
+
+### Agenda: topics to be discussed with time allocated to each
+
 **3:15PM - 3:30PM**: ???
 
 **3:30PM - 3:45PM**: ???
@@ -101,7 +133,6 @@ TODO
 ### Design changes: what changes were made to the design since the last meeting
 
 TODO
-
 ### Issues: problems and issues to address, with a sentence or two explaining each
 
 TODO
