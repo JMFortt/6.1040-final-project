@@ -17,6 +17,8 @@
 
 - Our beta checkpoint deliverables are available [here](deliverables/F5/F5.md)
 
+- Our user testing deliverables are available [here](deliverables/F6/F6.md)
+
 <!-- Screen recording: a video showing the current state of your app, with an audio narration explaining some key features. Link it in the README of your team repo. -->
 - Our beta checkpoint demo video is available here (TODO)
 
